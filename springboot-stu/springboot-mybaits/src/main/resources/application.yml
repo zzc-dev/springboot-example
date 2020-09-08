@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+## 单数据源配置
+#spring:
+#  datasource:
+#    username: root
+#    password: 123456
+#    url: jdbc:mysql://localhost:3306/book?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=UTC
+#    driver-class-name: com.mysql.jdbc.Driver
+
+# 多数据源配置
+
+spring:
+  datasource:
+    test1:
+        jdbc-url: jdbc:mysql://localhost:3306/book?serverTimezone=CTT&useUnicode=true&characterEncoding=utf8
+        driverClassName: com.mysql.cj.jdbc.Driver
+        username: root
+        password: 123456
+    test2:
+        jdbc-url: jdbc:mysql://localhost:3306/test?serverTimezone=CTT&useUnicode=true&characterEncoding=utf8
+        driverClassName: com.mysql.cj.jdbc.Driver
+        username: root
+        password: 123456
+
+mybatis:
+#  mapper-locations: classpath:mapping/*Mapper.xml
+  mapper-locations: classpath:mapping/**.xml
+#  type-aliases-package: com.zzc.mybatis.springbootmybaits.entity
+
+#showSql
+logging:
+  level:
+    com:
+      example:
+        mapper : debug

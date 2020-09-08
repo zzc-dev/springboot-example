@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<jpa module="user">
+
+    <jpql id="queryUser"
+          resultClass="com.zzc.springbootjpa.data.dto.UserDto" native="true">
+        select * from user where uid=:uid
+    </jpql>
+
+    <jpql id="queryByTaskNameOrDeviceNameAndStatus"
+          resultClass="com.kedacom.media.data.dto.VideoAnalysisTaskAndDeviceDTO" native="true">
+        SELECT t.ID as task_Id,t.TASK_NAME as task_Name,t.TASK_TYPE as task_Type,d.CALL_ID as call_Id ,d.ID as task_Device_Id , d.VERSION as version, d.VIDEO_TYPE as video_Type,
+        d.DEVICE_ID as device_Id,d.DEVICE_NAME as device_Name,d.BEGIN_TIME as begin_Time,d.END_TIME as end_Time, d.CALL_IDS as call_Ids,
+        d.FAILURE_TIMES as failure_Times,
+        d.PERCENT as percent , d.`STATUS` as status, d.VIDEO_URL as video_Url,d.TIME_CONCENTRATE,d.device_group_name as device_Group_Name
+        from video_analysis_task t
+        left join video_analysis_device d
+        ON t.ID = d.TASK_ID
+        where 1=1
+        #if($status)
+        AND d.`STATUS`=:status
+        #end
+        #if($userGroup)
+        AND USER_GROUP LIKE :%userGroup%
+        #end
+        #if($queryValue)
+        AND (TASK_NAME LIKE :%queryValue% or DEVICE_NAME LIKE :%queryValue%)
+        #end
+        #if($taskType == 0)
+        AND (TASK_TYPE= 0 or TASK_TYPE = 2)
+        #end
+        #if($taskType != 0)
+        AND TASK_TYPE=:taskType
+        #end
+        order by t.id desc
+
+    </jpql>
+
+    <jpql id="findSubTaskCount" resultClass="java.util.HashMap" native="true">
+        <![CDATA[
+        select dev_gb_id devGbId, count(dev_gb_id) count from video_anr_sub_task where dev_gb_id in (:devGbIds) group by dev_gb_id
+         ]]>
+    </jpql>
+
+
+</jpa>
