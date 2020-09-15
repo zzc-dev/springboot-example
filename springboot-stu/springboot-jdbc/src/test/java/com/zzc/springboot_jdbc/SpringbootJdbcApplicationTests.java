@@ -1,5 +1,6 @@
 package com.zzc.springboot_jdbc;
 
+import com.zzc.demo_starter.service.DemoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +22,14 @@ class SpringbootJdbcApplicationTests {
         Connection connection = source.getConnection();
         System.out.println(connection);
         connection.close();
+    }
+
+    @Autowired
+    private DemoService service;
+
+    @Test
+    void testDemo(){
+        service.test("1");
     }
 
 }
