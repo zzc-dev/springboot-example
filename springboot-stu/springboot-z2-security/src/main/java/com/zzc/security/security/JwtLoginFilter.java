@@ -38,6 +38,7 @@ public class JwtLoginFilter extends UsernamePasswordAuthenticationFilter {
 	public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
 			throws IOException, ServletException {
 		// POST 请求 /login 登录时拦截， 由此方法触发执行登录认证流程，可以在此覆写整个登录认证逻辑
+		System.out.println("1.loginFilter");
 		super.doFilter(req, res, chain); 
 	}
 	
@@ -48,7 +49,7 @@ public class JwtLoginFilter extends UsernamePasswordAuthenticationFilter {
 		// 此过滤器的用户名密码默认从request.getParameter()获取，但是这种
 		// 读取方式不能读取到如 application/json 等 post 请求数据，需要把
 		// 用户名密码的读取逻辑修改为到流中读取request.getInputStream()
-
+		System.out.println("2.doFilter() ->  authResult = this.attemptAuthentication(request, response)");
 		String body = getBody(request);
 		JSONObject jsonObject = JSON.parseObject(body);
 		String username = jsonObject.getString("username");

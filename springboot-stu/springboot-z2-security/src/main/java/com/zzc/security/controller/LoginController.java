@@ -14,11 +14,11 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 /**
- * 登录控制器
+ * 登录控制器 JwtLoginFilter 与LoginControler选一个
  * @author Louis
  * @date Nov 28, 2018
  */
-@RestController
+//@RestController
 public class LoginController {
 
 	@Autowired
