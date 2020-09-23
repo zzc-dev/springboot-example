@@ -8,10 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author zzc
@@ -32,20 +29,26 @@ public class UserController {
         return "";
     }
 
+
     @GetMapping("/test1")
     @Transactional
-    public String testVersion(){
-        User byId = userDao.getById(1);
-        byId.setPassword("123456");
-        User save = userDao.save(byId);
-        System.out.println(save);
-        return "";
+    public String testVersion(String id){
+        User user = userDao.getById(1);
+        user.setPassword(id);
+        if("1".equals(id)){
+            try {
+                Thread.sleep(20000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        userDao.save(user);
+       return user.toString();
     }
 
     @Autowired
     private JpqlQuerySupport jpqlQuerySupport;
 
-    @Autowired
     @GetMapping("/test2")
     public String testJpql(){
         HashMap hashMap = new HashMap();

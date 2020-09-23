@@ -16,4 +16,5 @@ public interface UserDao extends JpaRepository<User, Integer> {
 
     @Query(value = "select * from user where uid = :uid", nativeQuery = true)
     User getById(@Param("uid")Integer id);
+
 }
