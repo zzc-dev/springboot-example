@@ -1,0 +1,1058 @@
+<div class="card-body p-lg-30">
+                                            
+                                            
+                                            <h1 class="h2 mb-3" id="sf-article_title">
+                                                <a class="text-body" href="/a/1190000019896723">Dubbo 一篇文章就够了：从入门到实战</a>
+                                            </h1>
+                                            
+
+                                                <script type="text/javascript">
+                                                    OA_show(25);
+                                                </script><div id="OA_holder_25"><div id="beacon_c489063e40" style="position: absolute; left: 0px; top: 0px; visibility: hidden;"><img src="https://sponsor.segmentfault.com/lg.php?bannerid=0&amp;campaignid=0&amp;zoneid=25&amp;loc=https%3A%2F%2Fsegmentfault.com%2Fa%2F1190000019896723&amp;referer=https%3A%2F%2Fsegmentfault.com%2Fuser%2Fbinding%3Fsite%3D&amp;cb=c489063e40" width="0" height="0" alt="" style="width: 0px; height: 0px;"></div>
+</div>
+
+                                                <article class="article fmt article-content" data-id="1190000019896723" data-license="">
+                                                    
+<h3 id="item-1">一 为什么需要 dubbo</h3>
+<p>很多时候，其实我们使用这个技术的时候，可能都是因为项目需要，所以，我们就用了，但是，至于为什么我们需要用到这个技术，可能自身并不是很了解的，但是，其实了解技术的来由及背景知识，对于理解一项技术还是有帮助的，那么，dubbo是怎么被提上日程的呢？</p>
+<p>在互联网的发展过程中，在以前，我们只需要一个服务器，将程序全部打包好就可以，但是，随着流量的增大，常规的垂直应用架构已无法应对，所以，架构就发生了演变。</p>
+<p><strong>1 单一应用架构</strong></p>
+<p><strong>2 应用和数据库单独部署</strong></p>
+<p><strong>3 应用和数据库集群部署</strong></p>
+<p><strong>4 数据库压力变大，读写分离</strong></p>
+<p><strong>5 使用缓存技术加快速度</strong></p>
+<p><strong>6 数据库分库分表</strong></p>
+<p><strong>7 应用分为不同的类型拆分</strong></p>
+<p>发展到这个阶段的时候，我们发现，应用与应用之间的关系已经十分的复杂了，就会出现以下几个问题（以下摘录于官网）：</p>
+<p>① 当服务越来越多时，服务 URL 配置管理变得非常困难，F5 硬件负载均衡器的单点压力也越来越大。<br>② 当进一步发展，服务间依赖关系变得错踪复杂，甚至分不清哪个应用要在哪个应用之前启动，架构师都不能完整的描述应用的架构关系。<br>③ 接着，服务的调用量越来越大，服务的容量问题就暴露出来，这个服务需要多少机器支撑？什么时候该加机器？</p>
+<p>为了解决这由于架构的演变所产生的问题几个问题，于是，dubbo 产生了。当然，解决这个问题的技术不止 dubbo 。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWVlYWMzNDRhYzcwZmRlZDUuanBn" alt="摘录于官网" title="摘录于官网"></span></p>
+<p>从上面 Dubbo 的服务治理图我们就可以看到，Duboo 很好了解决了上面所出现的一些问题。</p>
+<p>所以，当你的系统架构发展到了这种阶段的时候，就需要考虑使用 Dubbo 了。</p>
+<h3 id="item-2">二 Dubbo 技术架构</h3>
+<p>我们已经非常清楚的知道为什么在我们的系统中需要 Dubbo 这项技术了，下面，我们接着唠叨唠叨 Dubbo 的架构。</p>
+<p>首先，上一张图（摘自官网）。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWU1OTliNDA0NjZlODRjNmIuanBn" alt="摘自官网" title="摘自官网"></span></p>
+<p>看到图之后，可能你对上面的几个概念还是一脸懵逼，无从下手，下面，带你看看这几个角色到底是什么意思？</p>
+<p><strong>节点角色说明</strong></p>
+<table>
+<thead><tr>
+<th>节点</th>
+<th>角色说明</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Provider</td>
+<td>暴露服务的服务提供方</td>
+</tr>
+<tr>
+<td>Consumer</td>
+<td>调用远程服务的服务消费方</td>
+</tr>
+<tr>
+<td>Registry</td>
+<td>服务注册与发现的注册中心</td>
+</tr>
+<tr>
+<td>Monitor</td>
+<td>统计服务的调用次数和调用时间的监控中心</td>
+</tr>
+<tr>
+<td>Container</td>
+<td>服务运行容器</td>
+</tr>
+</tbody>
+</table>
+<p>看了这几个概念后似乎发现，其实 Dubbo 的架构也是很简单的（其实现细节是复杂的），为什么这么说呢，有没有发现，其实很像<strong>生产者-消费者</strong>模型。只是在这种模型上，加上了<strong>注册中心和监控中心</strong>，用于管理提供方提供的<strong>url</strong>，以及管理整个过程。</p>
+<p>那么，整个发布-订阅的过程就非常的简单了。</p>
+<ul>
+<li>启动容器，加载，<strong>运行服务提供者</strong>。</li>
+<li>服务提供者在启动时，在注册中心<strong>发布注册</strong>自己提供的<strong>服务</strong>。</li>
+<li>服务消费者在启动时，在注册中心<strong>订阅</strong>自己所需的<strong>服务</strong>。</li>
+</ul>
+<p>如果考虑<strong>失败或变更</strong>的情况，就需要考虑下面的过程。</p>
+<ul>
+<li>注册中心返回服务提供者地址列表给消费者，如果有变更，注册中心将基于长连接推送变更数据给消费者。</li>
+<li>服务消费者，从提供者地址列表中，基于软负载均衡算法，选一台提供者进行调用，如果调用失败，再选另一台调用。</li>
+<li>服务消费者和提供者，在内存中累计调用次数和调用时间，定时每分钟发送一次统计数据到监控中心。</li>
+</ul>
+<p>通过这番讲解，我相信 Dubbo 的架构我们也轻车熟路了，那就直接入手，开车吧。</p>
+<h3 id="item-3">三 Dubbo 开始入门</h3>
+<p>终于走到这一步了，写到这里停了大概一周的时间，主要原因还是最近项目太忙，赶着交差呢，今天希望能一鼓作气，完完整整的写完 dubbo 的基础篇！</p>
+<h4>3.1 服务端</h4>
+<p>首先，我们先把服务端的接口写好，因为其实 dubbo 的作用简单来说就是给消费端提供接口。</p>
+<h5>接口定义</h5>
+<pre class="hljs typescript"><code><span class="hljs-comment">/**
+ * xml方式服务提供者接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> ProviderService {
+
+    <span class="hljs-built_in">String</span> SayHello(<span class="hljs-built_in">String</span> word);
+}</code></pre>
+<p>这个接口非常简单，只是包含一个 SayHello 的方法。</p>
+<p>接着，定义它的实现类。</p>
+<pre class="hljs actionscript"><code><span class="hljs-comment">/**
+ * xml方式服务提供者实现类
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProviderServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">ProviderService</span></span>{
+
+    <span class="hljs-keyword">public</span> String SayHello(String word) {
+        <span class="hljs-keyword">return</span> word;
+    }
+}</code></pre>
+<p>这样我们就把我们的接口写好了，那么我们应该怎么将我们的服务暴露出去呢？</p>
+<h5>导入 maven 依赖</h5>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">project</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://maven.apache.org/POM/4.0.0"</span>
+         <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">modelVersion</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.ouyangsihai<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo-provider<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">dependencies</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.8.1<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-name">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/com.alibaba/dubbo --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.6.6<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.zookeeper<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>zookeeper<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.4.10<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.101tec<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>zkclient<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>0.5<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.netty<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>netty-all<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>4.1.32.Final<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.curator<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>curator-framework<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.8.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.curator<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>curator-recipes<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.8.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;/<span class="hljs-name">dependencies</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">project</span>&gt;</span></code></pre>
+<p>这里使用的 dubbo 的版本是 <code>2.6.6</code> ，需要注意的是，如果你只导入 dubbo 的包的时候是<strong>会报错</strong>的，<strong>找不到 netty 和 curator 的依赖</strong>，所以，在这里我们需要把这两个的依赖加上，就不会报错了。</p>
+<p>另外，这里我们使用 zookeeper 作为注册中心。</p>
+<p>到目前为止，dubbo 需要的环境就已经可以了，下面，我们就把上面刚刚定义的接口暴露出去。</p>
+<h5>暴露接口（xml 配置方法）</h5>
+<p>首先，我们在我们项目的 resource 目录下<strong>创建 META-INF.spring 包</strong>，然后再创建 <strong>provider.xml</strong> 文件，名字可以任取哦，如下图。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTJjNDdmODRjOTYwZmQwMWYucG5n" alt="" title=""></span></p>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">beans</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attr">xmlns:dubbo</span>=<span class="hljs-string">"http://code.alibabatech.com/schema/dubbo"</span>
+       <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans        http://www.springframework.org/schema/beans/spring-beans.xsd        http://code.alibabatech.com/schema/dubbo        http://code.alibabatech.com/schema/dubbo/dubbo.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前项目在整个分布式架构里面的唯一名称，计算依赖关系的标签--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:application</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"provider"</span> <span class="hljs-attr">owner</span>=<span class="hljs-string">"sihai"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.enable"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.accept.foreign.ip"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"false"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.port"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"55555"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">dubbo:application</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:monitor</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"registry"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--dubbo这个服务所要暴露的服务地址所对应的注册中心--&gt;</span>
+    <span class="hljs-comment">&lt;!--&lt;dubbo:registry address="N/A"/&gt;--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"N/A"</span> /&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前服务发布所依赖的协议；webserovice、Thrift、Hessain、http--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"dubbo"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"20880"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--Bean bean定义--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">class</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderServiceImpl"</span>/&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-name">beans</span>&gt;</span></code></pre>
+<p>① 上面的文件其实就是类似 spring 的配置文件，而且，dubbo 底层就是 spring。<br>② <strong>节点：dubbo:application</strong><br>  就是整个项目在分布式架构中的唯一名称，可以在 <code>name</code> 属性中配置，另外还可以配置 <code>owner</code> 字段，表示属于谁。<br>  下面的参数是可以不配置的，这里配置是因为出现了端口的冲突，所以配置。<br>③ <strong>节点：dubbo:monitor</strong><br>  监控中心配置， 用于配置连接监控中心相关信息，可以不配置，不是必须的参数。<br>④ <strong>节点：dubbo:registry</strong><br>  配置注册中心的信息，比如，这里我们可以配置 zookeeper 作为我们的注册中心。<code>address</code> 是注册中心的地址，这里我们配置的是 <code>N/A</code> 表示由 dubbo 自动分配地址。或者说是一种直连的方式，不通过注册中心。<br>⑤ <strong>节点：dubbo:protocol</strong><br>  服务发布的时候 dubbo 依赖什么协议，可以配置 dubbo、webserovice、Thrift、Hessain、http等协议。<br>⑥ <strong>节点：dubbo:service</strong><br>  这个节点就是我们的重点了，当我们服务发布的时候，我们就是通过这个配置将我们的服务发布出去的。<code>interface</code> 是接口的包路径，<code>ref</code> 是第 ⑦ 点配置的接口的 bean。<br>⑦ 最后，我们需要像配置 spring 的接口一样，配置接口的 bean。</p>
+<p>到这一步，关于服务端的配置就完成了，下面我们通过 <code>main 方法</code>将接口发布出去。</p>
+<h5>发布接口</h5>
+<pre class="hljs swift"><code>package com.sihai.dubbo.provider;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ProtocolConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ServiceConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.container.Main;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderService;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderServiceImpl;
+<span class="hljs-keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-comment">/**
+ * xml方式启动
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">App</span> 
+</span>{
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> void main( <span class="hljs-type">String</span>[] args ) <span class="hljs-keyword">throws</span> <span class="hljs-type">IOException</span> {
+        <span class="hljs-comment">//加载xml配置文件启动</span>
+        <span class="hljs-type">ClassPathXmlApplicationContext</span> context = new <span class="hljs-type">ClassPathXmlApplicationContext</span>(<span class="hljs-string">"META-INF/spring/provider.xml"</span>);
+        context.start();
+        <span class="hljs-type">System</span>.<span class="hljs-keyword">in</span>.read(); <span class="hljs-comment">// 按任意键退出</span>
+    }
+}
+</code></pre>
+<p>发布接口非常简单，因为 dubbo 底层就是依赖 spring 的，所以，我们只需要通过 <code>ClassPathXmlApplicationContext</code> 拿到我们刚刚配置好的 xml ，然后调用 <code>context.start()</code> 方法就启动了。</p>
+<p>看到下面的截图，就算是启动成功了，接口也就发布出去了。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWJjZWQ1NTdkNWVjMjNjMjEucG5n" alt="" title=""></span></p>
+<p>你以为到这里就结束了了，并不是的，我们拿到 <strong>dubbo 暴露出去的 url</strong>分析分析。</p>
+<p><strong>dubbo 暴露的 url</strong></p>
+<pre class="hljs ruby"><code style="word-break: break-word; white-space: initial;"><span class="hljs-symbol">dubbo:</span>/<span class="hljs-regexp">/192.168.234.1:20880/com</span>.sihai.dubbo.provider.service.ProviderService?anyhost=<span class="hljs-literal">true</span>&amp;application=provider&amp;bean.name=com.sihai.dubbo.provider.service.ProviderService&amp;bind.ip=<span class="hljs-number">192.168</span>.<span class="hljs-number">234.1</span>&amp;bind.port=<span class="hljs-number">20880</span>&amp;dubbo=<span class="hljs-number">2.0</span>.<span class="hljs-number">2</span>&amp;generic=<span class="hljs-literal">false</span>&amp;interface=com.sihai.dubbo.provider.service.ProviderService&amp;methods=SayHello&amp;owner=sihai&amp;pid=<span class="hljs-number">8412</span>&amp;qos.accept.foreign.ip=<span class="hljs-literal">false</span>&amp;qos.enable=<span class="hljs-literal">true</span>&amp;qos.port=<span class="hljs-number">55555</span>&amp;side=provider&amp;timestamp=<span class="hljs-number">1562077289380</span></code></pre>
+<p><strong>分析</strong></p>
+<p>① 首先，在形式上我们发现，其实这么牛逼的 dubbo 也是用<strong>类似于 http 的协议</strong>发布自己的服务的，只是这里我们用的是 <strong>dubbo 协议</strong>。<br>② <code>dubbo://192.168.234.1:20880/com.sihai.dubbo.provider.service.ProviderService</code><br>  上面这段链接就是 <code>?</code> 之前的链接，构成：<strong>协议://ip:端口/接口</strong>。发现是不是也没有什么神秘的。<br>③ <code>anyhost=true&amp;application=provider&amp;bean.name=com.sihai.dubbo.provider.service.ProviderService&amp;bind.ip=192.168.234.1&amp;bind.port=20880&amp;dubbo=2.0.2&amp;generic=false&amp;interface=com.sihai.dubbo.provider.service.ProviderService&amp;methods=SayHello&amp;owner=sihai&amp;pid=8412&amp;qos.accept.foreign.ip=false&amp;qos.enable=true&amp;qos.port=55555&amp;side=provider&amp;timestamp=1562077289380</code><br><code>?</code> 之后的字符串，分析后你发现，这些都是刚刚在 <code>provider.xml</code> 中配置的字段，然后通过 <code>&amp;</code> 拼接而成的，闻到了 <code>http</code> 的香味了吗？  </p>
+<p>终于，dubbo 服务端入门了。下面我们看看拿到了 url 后，怎么消费呢？</p>
+<h4>3.2 消费端</h4>
+<p>上面提到，我们在服务端提供的只是点对点的方式提供服务，并没有使用注册中心，所以，下面的配置也是会有一些不一样的。</p>
+<h5>消费端环境配置</h5>
+<p>首先，我们在消费端的 resource 下建立配置文件 <code>consumer.xml</code>。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTQ4ODcxZjFiYzkxNGJhODMucG5n" alt="" title=""></span></p>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">beans</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attr">xmlns:dubbo</span>=<span class="hljs-string">"http://code.alibabatech.com/schema/dubbo"</span>
+       <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans        http://www.springframework.org/schema/beans/spring-beans.xsd        http://code.alibabatech.com/schema/dubbo        http://code.alibabatech.com/schema/dubbo/dubbo.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前项目在整个分布式架构里面的唯一名称，计算依赖关系的标签--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:application</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"consumer"</span> <span class="hljs-attr">owner</span>=<span class="hljs-string">"sihai"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--dubbo这个服务所要暴露的服务地址所对应的注册中心--&gt;</span>
+    <span class="hljs-comment">&lt;!--点对点的方式--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"N/A"</span> /&gt;</span>
+    <span class="hljs-comment">&lt;!--&lt;dubbo:registry address="zookeeper://localhost:2181" check="false"/&gt;--&gt;</span>
+
+    <span class="hljs-comment">&lt;!--生成一个远程服务的调用代理--&gt;</span>
+    <span class="hljs-comment">&lt;!--点对点方式--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:reference</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                     <span class="hljs-attr">url</span>=<span class="hljs-string">"dubbo://192.168.234.1:20880/com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--&lt;dubbo:reference id="providerService"
+                     interface="com.sihai.dubbo.provider.service.ProviderService"/&gt;--&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-name">beans</span>&gt;</span></code></pre>
+<p><strong>分析</strong></p>
+<p>① 发现这里的 <code>dubbo:application</code> 和 <code>dubbo:registry</code> 是一致的。<br>② <code>dubbo:reference</code> ：我们这里采用<strong>点对点</strong>的方式，所以，需要配置在服务端暴露的 url 。</p>
+<h5>maven 依赖</h5>
+<p>和服务端一样</p>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">project</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://maven.apache.org/POM/4.0.0"</span>
+         <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+         <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">modelVersion</span>&gt;</span>4.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">modelVersion</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.ouyangsihai<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo-consumer<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">dependencies</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.ouyangsihai<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo-provider<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>junit<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.8.1<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">scope</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-name">scope</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-comment">&lt;!-- https://mvnrepository.com/artifact/com.alibaba/dubbo --&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.alibaba<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.6.6<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.zookeeper<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>zookeeper<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.4.10<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.101tec<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>zkclient<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>0.5<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.netty<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>netty-all<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>4.1.32.Final<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.curator<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>curator-framework<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.8.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.apache.curator<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>curator-recipes<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.8.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">dependencies</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">project</span>&gt;</span></code></pre>
+<h5>调用服务</h5>
+<pre class="hljs swift"><code>package com.sihai.dubbo.consumer;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ReferenceConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderService;
+<span class="hljs-keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-comment">/**
+ * xml的方式调用
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">App</span> 
+</span>{
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> void main( <span class="hljs-type">String</span>[] args ) <span class="hljs-keyword">throws</span> <span class="hljs-type">IOException</span> {
+
+        <span class="hljs-type">ClassPathXmlApplicationContext</span> context=new <span class="hljs-type">ClassPathXmlApplicationContext</span>(<span class="hljs-string">"consumer.xml"</span>);
+        context.start();
+        <span class="hljs-type">ProviderService</span> providerService = (<span class="hljs-type">ProviderService</span>) context.getBean(<span class="hljs-string">"providerService"</span>);
+        <span class="hljs-type">String</span> str = providerService.<span class="hljs-type">SayHello</span>(<span class="hljs-string">"hello"</span>);
+        <span class="hljs-type">System</span>.out.<span class="hljs-built_in">println</span>(str);
+        <span class="hljs-type">System</span>.<span class="hljs-keyword">in</span>.read();
+
+    }
+}
+</code></pre>
+<p>这里和服务端的发布如出一辙。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWE1ZjdhNjgxMjNmNjFlZWQucG5n" alt="" title=""></span><br>如此，我们就成功调用接口了。</p>
+<h3 id="item-4">四 加入 zookeeper 作为注册中心</h3>
+<p>在前面的案例中，我们没有使用任何的注册中心，而是用一种直连的方式进行的。但是，实际上很多时候，我们都是使用 dubbo + zookeeper 的方式，使用 zookeeper 作为注册中心，这里，我们就介绍一下 zookeeper 作为注册中心的使用方法。</p>
+<p>这里，我们在前面的入门实例中进行改造。</p>
+<h4>4.1 服务端</h4>
+<p>在服务端中，我们只需要修改 provider.xml 即可。</p>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">beans</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attr">xmlns:dubbo</span>=<span class="hljs-string">"http://code.alibabatech.com/schema/dubbo"</span>
+       <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans        http://www.springframework.org/schema/beans/spring-beans.xsd        http://code.alibabatech.com/schema/dubbo        http://code.alibabatech.com/schema/dubbo/dubbo.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前项目在整个分布式架构里面的唯一名称，计算依赖关系的标签--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:application</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"provider"</span> <span class="hljs-attr">owner</span>=<span class="hljs-string">"sihai"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.enable"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"true"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.accept.foreign.ip"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"false"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:parameter</span> <span class="hljs-attr">key</span>=<span class="hljs-string">"qos.port"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"55555"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">dubbo:application</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:monitor</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"registry"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--dubbo这个服务所要暴露的服务地址所对应的注册中心--&gt;</span>
+    <span class="hljs-comment">&lt;!--&lt;dubbo:registry address="N/A"/&gt;--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"zookeeper://localhost:2181"</span> <span class="hljs-attr">check</span>=<span class="hljs-string">"false"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前服务发布所依赖的协议；webserovice、Thrift、Hessain、http--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"dubbo"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"20880"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--Bean bean定义--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">class</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderServiceImpl"</span>/&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-name">beans</span>&gt;</span></code></pre>
+<p>重点关注这句话</p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"zookeeper://localhost:2181"</span> /&gt;</span></code></pre>
+<p>在 address 中，使用我们的 zookeeper 的地址。</p>
+<p>如果是 <strong>zookeeper 集群</strong>的话，使用下面的方式。</p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"192.168.11.129:2181,192.168.11.137:2181,192.168.11.138:2181"</span>/&gt;</span></code></pre>
+<p>服务端的配置就好了，其他的跟 <strong>入门案例</strong> 一样。</p>
+<h4>4.2 消费端</h4>
+<p>跟服务端一样，在消费端，我们也只需要修改 <code>consumer.xml</code> 即可。</p>
+<pre class="hljs xml"><code><span class="hljs-meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">beans</span> <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans"</span>
+       <span class="hljs-attr">xmlns:xsi</span>=<span class="hljs-string">"http://www.w3.org/2001/XMLSchema-instance"</span>
+       <span class="hljs-attr">xmlns:dubbo</span>=<span class="hljs-string">"http://code.alibabatech.com/schema/dubbo"</span>
+       <span class="hljs-attr">xsi:schemaLocation</span>=<span class="hljs-string">"http://www.springframework.org/schema/beans        http://www.springframework.org/schema/beans/spring-beans.xsd        http://code.alibabatech.com/schema/dubbo        http://code.alibabatech.com/schema/dubbo/dubbo.xsd"</span>&gt;</span>
+
+    <span class="hljs-comment">&lt;!--当前项目在整个分布式架构里面的唯一名称，计算依赖关系的标签--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:application</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"consumer"</span> <span class="hljs-attr">owner</span>=<span class="hljs-string">"sihai"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--dubbo这个服务所要暴露的服务地址所对应的注册中心--&gt;</span>
+    <span class="hljs-comment">&lt;!--点对点的方式--&gt;</span>
+    <span class="hljs-comment">&lt;!--&lt;dubbo:registry address="N/A" /&gt;--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"zookeeper://localhost:2181"</span> <span class="hljs-attr">check</span>=<span class="hljs-string">"false"</span>/&gt;</span>
+
+    <span class="hljs-comment">&lt;!--生成一个远程服务的调用代理--&gt;</span>
+    <span class="hljs-comment">&lt;!--点对点方式--&gt;</span>
+    <span class="hljs-comment">&lt;!--&lt;dubbo:reference id="providerService"
+                     interface="com.sihai.dubbo.provider.service.ProviderService"
+                     url="dubbo://192.168.234.1:20880/com.sihai.dubbo.provider.service.ProviderService"/&gt;--&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:reference</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</span>
+
+<span class="hljs-tag">&lt;/<span class="hljs-name">beans</span>&gt;</span></code></pre>
+<p>① 注册中心配置跟服务端一样。</p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"zookeeper://localhost:2181"</span>/&gt;</span></code></pre>
+<p>② dubbo:reference<br>  由于我们这里使用 zookeeper 作为注册中心，所以，跟点对点的方式是不一样的，这里不再需要 dubbo 服务端提供的 url 了，只需要直接引用服务端提供的接口即可。</p>
+<pre class="hljs java"><code>&lt;dubbo:reference id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</code></pre>
+<p>好了，消费端也配置好了，这样就可以使用<strong>修改的入门案例</strong>，重新启动运行了。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWQ3OTAxMjAwMTMxYTdkM2YucG5n" alt="" title=""></span></p>
+<p>同样成功了。</p>
+<p>这时候的区别在于，<strong>将 dubbo 发布的 url 注册到了 zookeeper，消费端从 zookeeper 消费，zookeeper 相当于一个中介，给消费者提供服务。</strong></p>
+<p>你以为这就完了？不，好戏才刚刚开始呢。</p>
+<h3 id="item-5">五 多种配置方式</h3>
+<p>在<strong>入门实例</strong>的时候，我们使用的是 <strong>xml 配置</strong>的方式，对 dubbo 的环境进行了配置，但是，官方还提供了其他的配置方式，这里我们也一一分解。</p>
+<h4>5.1 API配置方式</h4>
+<p>这种方式其实官方是<strong>不太推荐</strong>的，<strong>官方推荐使用 xml 配置的方式</strong>，但是，在有的时候测试的时候，还是可以用的到的，另外，为了保证完整性，这些内容还是有必要讲讲的。</p>
+<p>首先还是回到服务端工程。</p>
+<h5>服务端</h5>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWNjYzIzM2ViNzA3MTQ1MjQucG5n" alt="" title=""></span></p>
+<p>这里我们使用 <strong>api 的方式</strong>配置，所以，<code>provider.xml</code> 这个配置文件就暂时不需要了，我们只需要在上面的 <code>AppApi</code> 这个类中的 <code>main</code> 方法中用 api配置及启动即可。</p>
+<pre class="hljs java"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.provider;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ProtocolConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ServiceConfig;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderService;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderServiceImpl;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-comment">/**
+ * Api方式启动
+ * api的方式调用不需要其他的配置，只需要下面的代码即可。
+ * 但是需要注意，官方建议：
+ * Api方式用于测试用例使用，推荐xml的方式
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AppApi</span>
+</span>{
+    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span><span class="hljs-params">( String[] args )</span> <span class="hljs-keyword">throws</span> IOException </span>{
+
+        <span class="hljs-comment">// 服务实现</span>
+        ProviderService providerService = <span class="hljs-keyword">new</span> ProviderServiceImpl();
+
+        <span class="hljs-comment">// 当前应用配置</span>
+        ApplicationConfig application = <span class="hljs-keyword">new</span> ApplicationConfig();
+        application.setName(<span class="hljs-string">"provider"</span>);
+        application.setOwner(<span class="hljs-string">"sihai"</span>);
+
+        <span class="hljs-comment">// 连接注册中心配置</span>
+        RegistryConfig registry = <span class="hljs-keyword">new</span> RegistryConfig();
+        registry.setAddress(<span class="hljs-string">"zookeeper://localhost:2181"</span>);
+<span class="hljs-comment">//        registry.setUsername("aaa");</span>
+<span class="hljs-comment">//        registry.setPassword("bbb");</span>
+
+        <span class="hljs-comment">// 服务提供者协议配置</span>
+        ProtocolConfig protocol = <span class="hljs-keyword">new</span> ProtocolConfig();
+        protocol.setName(<span class="hljs-string">"dubbo"</span>);
+        protocol.setPort(<span class="hljs-number">20880</span>);
+        <span class="hljs-comment">//protocol.setThreads(200);</span>
+
+        <span class="hljs-comment">// 注意：ServiceConfig为重对象，内部封装了与注册中心的连接，以及开启服务端口</span>
+
+        <span class="hljs-comment">// 服务提供者暴露服务配置</span>
+        ServiceConfig&lt;ProviderService&gt; service = <span class="hljs-keyword">new</span> ServiceConfig&lt;ProviderService&gt;(); <span class="hljs-comment">// 此实例很重，封装了与注册中心的连接，请自行缓存，否则可能造成内存和连接泄漏</span>
+        service.setApplication(application);
+        service.setRegistry(registry); <span class="hljs-comment">// 多个注册中心可以用setRegistries()</span>
+        service.setProtocol(protocol); <span class="hljs-comment">// 多个协议可以用setProtocols()</span>
+        service.setInterface(ProviderService<span class="hljs-class">.<span class="hljs-keyword">class</span>)</span>;
+        service.setRef(providerService);
+        service.setVersion(<span class="hljs-string">"1.0.0"</span>);
+
+        <span class="hljs-comment">// 暴露及注册服务</span>
+        service.export();
+    }
+}
+</code></pre>
+<p><strong>分析</strong></p>
+<p>看到上面的代码是不是云里雾里，不要慌，我们通过对照 xml 的方式分析一下。</p>
+<blockquote>registry  的 xml 方式</blockquote>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181"</span>/&gt;</span></code></pre>
+<blockquote>API 的方式</blockquote>
+<pre class="hljs actionscript"><code>RegistryConfig registry = <span class="hljs-keyword">new</span> RegistryConfig();
+registry.setAddress(<span class="hljs-string">"zookeeper://localhost:2181"</span>);</code></pre>
+<p><code>dubbo:registry</code>节点对应<code>RegistryConfig </code>，xml 的<code>属性</code>对应 API 方式用 <code>set</code> 方法就可以了。对比之下，你就会发现，如果 API 的方式不熟悉，可以对照 xml 配置方式就可以。</p>
+<p><strong>其他 API</strong></p>
+<pre class="hljs css"><code><span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ServiceConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ReferenceConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ProtocolConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.RegistryConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.MonitorConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ApplicationConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ModuleConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ProviderConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ConsumerConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.MethodConfig</span>
+<span class="hljs-selector-tag">org</span><span class="hljs-selector-class">.apache</span><span class="hljs-selector-class">.dubbo</span><span class="hljs-selector-class">.config</span><span class="hljs-selector-class">.ArgumentConfig</span></code></pre>
+<p>更详细的可以查看官方文档：<br><a href="http://dubbo.apache.org/zh-cn/docs/user/configuration/api.html" rel="nofollow noreferrer" target="_blank">http://dubbo.apache.org/zh-cn...</a></p>
+<p>我们再看看我配置的消费端的 Api 方式。</p>
+<h5>消费端</h5>
+<p>同样，我们不需要 consumer.xml 配置文件了，只需要在 <code>main</code> 方法中启动即可。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTc3M2M5NTExYmE5YzgyZWIucG5n" alt="" title=""></span></p>
+<pre class="hljs java"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.consumer;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ReferenceConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderService;
+
+<span class="hljs-comment">/**
+ * api的方式调用
+ * api的方式调用不需要其他的配置，只需要下面的代码即可。
+ * 但是需要注意，官方建议：
+ * Api方式用于测试用例使用，推荐xml的方式
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AppApi</span> </span>{
+
+    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span><span class="hljs-params">(String[] args)</span> </span>{
+        <span class="hljs-comment">// 当前应用配置</span>
+        ApplicationConfig application = <span class="hljs-keyword">new</span> ApplicationConfig();
+        application.setName(<span class="hljs-string">"consumer"</span>);
+        application.setOwner(<span class="hljs-string">"sihai"</span>);
+
+        <span class="hljs-comment">// 连接注册中心配置</span>
+        RegistryConfig registry = <span class="hljs-keyword">new</span> RegistryConfig();
+        registry.setAddress(<span class="hljs-string">"zookeeper://localhost:2181"</span>);
+
+        <span class="hljs-comment">// 注意：ReferenceConfig为重对象，内部封装了与注册中心的连接，以及与服务提供方的连接</span>
+
+        <span class="hljs-comment">// 引用远程服务</span>
+        ReferenceConfig&lt;ProviderService&gt; reference = <span class="hljs-keyword">new</span> ReferenceConfig&lt;ProviderService&gt;(); <span class="hljs-comment">// 此实例很重，封装了与注册中心的连接以及与提供者的连接，请自行缓存，否则可能造成内存和连接泄漏</span>
+        reference.setApplication(application);
+        reference.setRegistry(registry); <span class="hljs-comment">// 多个注册中心可以用setRegistries()</span>
+        reference.setInterface(ProviderService<span class="hljs-class">.<span class="hljs-keyword">class</span>)</span>;
+
+        <span class="hljs-comment">// 和本地bean一样使用xxxService</span>
+        ProviderService providerService = reference.get(); <span class="hljs-comment">// 注意：此代理对象内部封装了所有通讯细节，对象较重，请缓存复用</span>
+        providerService.SayHello(<span class="hljs-string">"hello dubbo! I am sihai!"</span>);
+    }
+}
+</code></pre>
+<p>这部分的 API 配置的方式就到这了，注意：<strong>官方推荐 xml 的配置方法</strong>。</p>
+<h4>5.2 注解配置方式</h4>
+<p>注解配置方式还是需要了解一下的，现在微服务都倾向于这种方式，这也是以后发展的趋势，0 配置应该是这几年的趋势。</p>
+<p>那么如何对 dubbo 使用注解的方式呢？我们先看服务端。</p>
+<h5>服务端</h5>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWEwNTM0YWNkMWMwNGU1NTAucG5n" alt="" title=""></span></p>
+<p><strong>第一步：定义接口及实现类</strong>，在上面的截图中的 annotation 包下</p>
+<pre class="hljs typescript"><code>package com.sihai.dubbo.provider.service.annotation;
+
+<span class="hljs-comment">/**
+ * 注解方式接口
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> ProviderServiceAnnotation {
+    <span class="hljs-built_in">String</span> SayHelloAnnotation(<span class="hljs-built_in">String</span> word);
+}
+</code></pre>
+<pre class="hljs kotlin"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.provider.service.<span class="hljs-keyword">annotation</span>;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.<span class="hljs-keyword">annotation</span>.Service;
+
+<span class="hljs-comment">/**
+ * 注解方式实现类
+ */</span>
+<span class="hljs-meta">@Service(timeout = 5000)</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProviderServiceImplAnnotation</span> <span class="hljs-title">implements</span> <span class="hljs-title">ProviderServiceAnnotation</span></span>{
+
+    <span class="hljs-keyword">public</span> String SayHelloAnnotation(String word) {
+        <span class="hljs-keyword">return</span> word;
+    }
+}
+</code></pre>
+<p><strong>@Service</strong></p>
+<p><code>@Service</code> 用来配置 Dubbo 的服务提供方。</p>
+<p><strong>第二步：组装服务提供方。</strong>通过 Spring 中 <code>Java Config</code> 的技术（<code>@Configuration</code>）和 annotation 扫描（<code>@EnableDubbo</code>）来发现、组装、并向外提供 Dubbo 的服务。</p>
+<pre class="hljs kotlin"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.provider.configuration;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ProtocolConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ProviderConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.spring.context.<span class="hljs-keyword">annotation</span>.EnableDubbo;
+<span class="hljs-keyword">import</span> org.springframework.context.<span class="hljs-keyword">annotation</span>.Bean;
+<span class="hljs-keyword">import</span> org.springframework.context.<span class="hljs-keyword">annotation</span>.Configuration;
+
+<span class="hljs-comment">/**
+ * 注解方式配置
+ */</span>
+<span class="hljs-meta">@Configuration</span>
+<span class="hljs-meta">@EnableDubbo(scanBasePackages = <span class="hljs-meta-string">"com.sihai.dubbo.provider.service.annotation"</span>)</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DubboConfiguration</span> </span>{
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// #1 服务提供者信息配置</span>
+    <span class="hljs-keyword">public</span> ProviderConfig providerConfig() {
+        ProviderConfig providerConfig = new ProviderConfig();
+        providerConfig.setTimeout(<span class="hljs-number">1000</span>);
+        <span class="hljs-keyword">return</span> providerConfig;
+    }
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// #2 分布式应用信息配置</span>
+    <span class="hljs-keyword">public</span> ApplicationConfig applicationConfig() {
+        ApplicationConfig applicationConfig = new ApplicationConfig();
+        applicationConfig.setName(<span class="hljs-string">"dubbo-annotation-provider"</span>);
+        <span class="hljs-keyword">return</span> applicationConfig;
+    }
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// #3 注册中心信息配置</span>
+    <span class="hljs-keyword">public</span> RegistryConfig registryConfig() {
+        RegistryConfig registryConfig = new RegistryConfig();
+        registryConfig.setProtocol(<span class="hljs-string">"zookeeper"</span>);
+        registryConfig.setAddress(<span class="hljs-string">"localhost"</span>);
+        registryConfig.setPort(<span class="hljs-number">2181</span>);
+        <span class="hljs-keyword">return</span> registryConfig;
+    }
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// #4 使用协议配置，这里使用 dubbo</span>
+    <span class="hljs-keyword">public</span> ProtocolConfig protocolConfig() {
+        ProtocolConfig protocolConfig = new ProtocolConfig();
+        protocolConfig.setName(<span class="hljs-string">"dubbo"</span>);
+        protocolConfig.setPort(<span class="hljs-number">20880</span>);
+        <span class="hljs-keyword">return</span> protocolConfig;
+    }
+}</code></pre>
+<p><strong>分析</strong></p>
+<ul>
+<li>通过 @EnableDubbo 指定在<code>com.sihai.dubbo.provider.service.annotation</code> 下扫描所有标注有 <code>@Service</code> 的类</li>
+<li>
+<p>通过 <code>@Configuration</code> 将 <code>DubboConfiguration</code> 中所有的 <code>@Bean</code> 通过 <code>Java Config</code> 的方式组装出来并注入给 Dubbo 服务，也就是标注有 <code>@Service</code> 的类。这其中就包括了：</p>
+<ul>
+<li>ProviderConfig：服务提供方配置</li>
+<li>ApplicationConfig：应用配置</li>
+<li>RegistryConfig：注册中心配置</li>
+<li>ProtocolConfig：协议配置</li>
+</ul>
+</li>
+</ul>
+<p>看起来很复杂，其实。。。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWI4MzVkNzEyN2VlZDY2OGEucG5n" alt="" title=""></span></p>
+<p><strong>第三步：启动服务</strong></p>
+<pre class="hljs swift"><code>package com.sihai.dubbo.provider;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.spring.context.annotation.DubboComponentScan;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.configuration.DubboConfiguration;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.AnnotationConfigApplicationContext;
+<span class="hljs-keyword">import</span> sun.applet.Main;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-comment">/**
+ * 注解启动方式
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AppAnnotation</span> </span>{
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> void main(<span class="hljs-type">String</span>[] args) <span class="hljs-keyword">throws</span> <span class="hljs-type">IOException</span> {
+        <span class="hljs-type">AnnotationConfigApplicationContext</span> context = new <span class="hljs-type">AnnotationConfigApplicationContext</span>(<span class="hljs-type">DubboConfiguration</span><span class="hljs-class">.<span class="hljs-keyword">class</span>); 
+        <span class="hljs-title">context</span>.<span class="hljs-title">start</span>();
+        <span class="hljs-title">System</span>.<span class="hljs-title">in</span>.<span class="hljs-title">read</span>(); 
+    }
+}</span></code></pre>
+<p>发现输出下面信息就表示 success 了。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTE0MmNlZTM0YTcxN2MwMmQucG5n" alt="" title=""></span></p>
+<h5>消费端</h5>
+<p>同样我们下看看消费端的工程，有一个感性认识。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTQyM2ZjYmFjZWY1NThiZWEucG5n" alt="图片.png" title="图片.png"></span></p>
+<p><strong>第一步：引用服务</strong></p>
+<pre class="hljs kotlin"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.consumer.Annotation;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.<span class="hljs-keyword">annotation</span>.Reference;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.<span class="hljs-keyword">annotation</span>.ProviderServiceAnnotation;
+<span class="hljs-keyword">import</span> org.springframework.stereotype.Component;
+
+<span class="hljs-comment">/**
+ * 注解方式的service
+ */</span>
+<span class="hljs-meta">@Component(<span class="hljs-meta-string">"annotatedConsumer"</span>)</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConsumerAnnotationService</span> </span>{
+
+    <span class="hljs-meta">@Reference</span>
+    <span class="hljs-keyword">private</span> ProviderServiceAnnotation providerServiceAnnotation;
+
+    <span class="hljs-keyword">public</span> String doSayHello(String name) {
+        <span class="hljs-keyword">return</span> providerServiceAnnotation.SayHelloAnnotation(name);
+    }
+}
+</code></pre>
+<p>在 <code>ConsumerAnnotationService</code> 类中，通过 <code>@Reference</code> 引用服务端提供的类，然后通过方法调用这个类的方式，给消费端提供接口。<br><strong>注意：</strong>如果这里找不到 <code>ProviderServiceAnnotation</code> 类，请在服务端先把服务端工程用 <code>Maven intall</code> 一下，然后将服务端的依赖放到消费端的 <code>pom</code> 中。如下：</p>
+<pre class="hljs xml"><code><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>
+          <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.ouyangsihai<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>dubbo-provider<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0-SNAPSHOT<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span></code></pre>
+<p><strong>第二步：组装服务消费者</strong><br>这一步和服务端是类似的，这里就不在重复了。</p>
+<pre class="hljs kotlin"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.consumer.configuration;
+
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ApplicationConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.ConsumerConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.RegistryConfig;
+<span class="hljs-keyword">import</span> com.alibaba.dubbo.config.spring.context.<span class="hljs-keyword">annotation</span>.EnableDubbo;
+<span class="hljs-keyword">import</span> org.springframework.context.<span class="hljs-keyword">annotation</span>.Bean;
+<span class="hljs-keyword">import</span> org.springframework.context.<span class="hljs-keyword">annotation</span>.ComponentScan;
+<span class="hljs-keyword">import</span> org.springframework.context.<span class="hljs-keyword">annotation</span>.Configuration;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+<span class="hljs-comment">/**
+ * 注解配置类
+ */</span>
+<span class="hljs-meta">@Configuration</span>
+<span class="hljs-meta">@EnableDubbo(scanBasePackages = <span class="hljs-meta-string">"com.sihai.dubbo.consumer.Annotation"</span>)</span>
+<span class="hljs-meta">@ComponentScan(value = {<span class="hljs-meta-string">"com.sihai.dubbo.consumer.Annotation"</span>})</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ConsumerConfiguration</span> </span>{
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// 应用配置</span>
+    <span class="hljs-keyword">public</span> ApplicationConfig applicationConfig() {
+        ApplicationConfig applicationConfig = new ApplicationConfig();
+        applicationConfig.setName(<span class="hljs-string">"dubbo-annotation-consumer"</span>);
+        Map&lt;String, String&gt; stringStringMap = new HashMap&lt;String, String&gt;();
+        stringStringMap.put(<span class="hljs-string">"qos.enable"</span>,<span class="hljs-string">"true"</span>);
+        stringStringMap.put(<span class="hljs-string">"qos.accept.foreign.ip"</span>,<span class="hljs-string">"false"</span>);
+        stringStringMap.put(<span class="hljs-string">"qos.port"</span>,<span class="hljs-string">"33333"</span>);
+        applicationConfig.setParameters(stringStringMap);
+        <span class="hljs-keyword">return</span> applicationConfig;
+    }
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// 服务消费者配置</span>
+    <span class="hljs-keyword">public</span> ConsumerConfig consumerConfig() {
+        ConsumerConfig consumerConfig = new ConsumerConfig();
+        consumerConfig.setTimeout(<span class="hljs-number">3000</span>);
+        <span class="hljs-keyword">return</span> consumerConfig;
+    }
+
+    <span class="hljs-meta">@Bean</span> <span class="hljs-comment">// 配置注册中心</span>
+    <span class="hljs-keyword">public</span> RegistryConfig registryConfig() {
+        RegistryConfig registryConfig = new RegistryConfig();
+        registryConfig.setProtocol(<span class="hljs-string">"zookeeper"</span>);
+        registryConfig.setAddress(<span class="hljs-string">"localhost"</span>);
+        registryConfig.setPort(<span class="hljs-number">2181</span>);
+        <span class="hljs-keyword">return</span> registryConfig;
+    }
+}
+</code></pre>
+<p><strong>第三步：发起远程调用</strong></p>
+<p>在 <code>main</code> 方法中通过启动一个 <code>Spring Context</code>，从其中查找到组装好的 Dubbo 的服务消费者，并发起一次远程调用。</p>
+<pre class="hljs java"><code><span class="hljs-keyword">package</span> com.sihai.dubbo.consumer;
+
+<span class="hljs-keyword">import</span> com.sihai.dubbo.consumer.Annotation.ConsumerAnnotationService;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.consumer.configuration.ConsumerConfiguration;
+<span class="hljs-keyword">import</span> com.sihai.dubbo.provider.service.ProviderService;
+<span class="hljs-keyword">import</span> org.springframework.context.annotation.AnnotationConfigApplicationContext;
+<span class="hljs-keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;
+
+<span class="hljs-keyword">import</span> java.io.IOException;
+
+<span class="hljs-comment">/**
+ * 注解方式启动
+ *
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AppAnnotation</span>
+</span>{
+    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span><span class="hljs-params">( String[] args )</span> <span class="hljs-keyword">throws</span> IOException </span>{
+
+        AnnotationConfigApplicationContext context = <span class="hljs-keyword">new</span> AnnotationConfigApplicationContext(ConsumerConfiguration<span class="hljs-class">.<span class="hljs-keyword">class</span>)</span>; 
+        context.start(); <span class="hljs-comment">// 启动</span>
+        ConsumerAnnotationService consumerAnnotationService = context.getBean(ConsumerAnnotationService<span class="hljs-class">.<span class="hljs-keyword">class</span>)</span>; 
+        String hello = consumerAnnotationService.doSayHello(<span class="hljs-string">"annotation"</span>); <span class="hljs-comment">// 调用方法</span>
+        System.out.println(<span class="hljs-string">"result: "</span> + hello); <span class="hljs-comment">// 输出结果</span>
+
+    }
+}
+</code></pre>
+<p><strong>结果</strong></p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWI4NWRmZjhhMmVmZTUxNzkucG5n" alt="" title=""></span></p>
+<h3 id="item-6">六 常用场景</h3>
+<p>在下面的讲解中，都会是以 <code>xml</code> 配置的方式来讲解的，这也是 dubbo 官方比较推荐的方式。以下的操作都是在服务端的 <code>xml</code> 配置文件和消费端的配置文件来讲解的。</p>
+<h4>6.1 启动时检查</h4>
+<p>Dubbo 缺省会在启动时检查依赖的服务是否可用，不可用时会抛出异常，阻止 Spring 初始化完成，以便上线时，能及早发现问题，默认 `check="true"。</p>
+<p>但是，有的时候，我们并不是都需要启动时就检查的，比如测试的时候，我们是需要更快速的启动，所以，这种场景的时候，我们是需要关闭这个功能的。</p>
+<p>下面，我们看看如何使用这个功能。</p>
+<p>在服务端注册的时候（客户端注册时同样适用）；</p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181,localhost:2182,localhost:2183"</span> <span class="hljs-attr">check</span>=<span class="hljs-string">"false"</span>/&gt;</span></code></pre>
+<p>在客户端引用服务端服务的时候；</p>
+<pre class="hljs java"><code>&lt;dubbo:reference check=<span class="hljs-string">"false"</span> id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</code></pre>
+<p>就是这么简单，就是这么强！</p>
+<h4>6.2 集群容错</h4>
+<p>dubbo 也是支持集群容错的，同时也有很多可选的方案，其中，默认的方案是 <code>failover</code>，也就是重试机制。</p>
+<p>首先，我们先把所有的容错机制都整理一遍，然后再看看使用。</p>
+<table>
+<thead><tr>
+<th>集群模式</th>
+<th>说明</th>
+<th>使用方法</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Failover Cluster</td>
+<td>失败自动切换，当出现失败，重试其它服务器。通常用于读操作，但重试会带来更长延迟。可通过 retries="2" 来设置重试次数(不含第一次)。</td>
+<td>cluster="xxx" xxx：集群模式名称 ，例如cluster="failover"</td>
+</tr>
+<tr>
+<td>Failfast Cluster</td>
+<td>快速失败，只发起一次调用，失败立即报错。通常用于非幂等性的写操作，比如新增记录。</td>
+<td> </td>
+</tr>
+<tr>
+<td>Failsafe Cluster</td>
+<td>失败安全，出现异常时，直接忽略。</td>
+<td> </td>
+</tr>
+<tr>
+<td>Failback Cluster</td>
+<td>失败自动恢复，后台记录失败请求，定时重发。通常用于消息通知操作。</td>
+<td> </td>
+</tr>
+<tr>
+<td>Forking Cluster</td>
+<td>并行调用多个服务器，只要一个成功即返回。通常用于实时性要求较高的读操作，但需要浪费更多服务资源。可通过 forks="2" 来设置最大并行数。</td>
+<td> </td>
+</tr>
+<tr>
+<td>Broadcast Cluster</td>
+<td>广播调用所有提供者，逐个调用，任意一台报错则报错。通常用于通知所有提供者更新缓存或日志等本地资源信息。</td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+<p><strong>使用实例</strong><br>在发布服务或者引用服务的时候设置</p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span>/&gt;</span></code></pre>
+<pre class="hljs java"><code>&lt;dubbo:reference cluster=<span class="hljs-string">"failover"</span> retries=<span class="hljs-string">"2"</span> check=<span class="hljs-string">"false"</span> id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</code></pre>
+<h4>6.3 负载均衡</h4>
+<p>负载均衡想必是一个再熟悉不过的概念了，所以，dubbo 支持也是再正常不过了，这里也总结一下 dubbo 支持的负载均衡的一些方案及使用方法。</p>
+<table>
+<thead><tr>
+<th>负载均衡模式</th>
+<th>说明</th>
+<th>使用方法</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Random LoadBalance</td>
+<td>随机 按权重设置随机概率</td>
+<td>&lt;dubbo:service loadbalance="xxx"/&gt; xxx：负载均衡方法</td>
+</tr>
+<tr>
+<td>RoundRobin LoadBalance</td>
+<td>轮询 按公约后的权重设置轮询比率。</td>
+<td> </td>
+</tr>
+<tr>
+<td>LeastActive LoadBalance</td>
+<td>最少活跃调用数 相同活跃数的随机，活跃数指调用前后计数差。</td>
+<td> </td>
+</tr>
+<tr>
+<td>ConsistentHash LoadBalance</td>
+<td>一致性 Hash 相同参数的请求总是发到同一提供者。 当某一台提供者挂时，原本发往该提供者的请求，基于虚拟节点，平摊到其它提供者，不会引起剧烈变动。</td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+<h4>6.4 直连提供者</h4>
+<p>在开发及测试环境下，经常需要绕过注册中心，只测试指定服务提供者，所以，这种情况下，我们只需要直接连接服务端的地即可，其实，这种方法在前面的讲解已经使用到了，第一种讲解的方式就是这种方式，因为这种方式简单。</p>
+<p><strong>使用</strong></p>
+<pre class="hljs java"><code>&lt;dubbo:reference id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                     url=<span class="hljs-string">"dubbo://192.168.234.1:20880/com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</code></pre>
+<p>说明：可以看到，只要在消费端在 <code>dubbo:reference</code> 节点使用 <code>url</code> 给出服务端的方法即可。</p>
+<h4>6.5 只订阅</h4>
+<p>只订阅就是只能够订阅服务端的服务，而不能够注册。</p>
+<p>引用官方的使用场景如下：</p>
+<blockquote>为方便开发测试，经常会在线下共用一个所有服务可用的注册中心，这时，如果一个正在开发中的服务提供者注册，可能会影响消费者不能正常运行。<br>可以让服务提供者开发方，只订阅服务(开发的服务可能依赖其它服务)，而不注册正在开发的服务，通过直连测试正在开发的服务。</blockquote>
+<pre class="hljs cpp"><code style="word-break: break-word; white-space: initial;">&lt;dubbo:registry <span class="hljs-keyword">register</span>=<span class="hljs-string">"false"</span> protocol=<span class="hljs-string">"zookeeper"</span> address=<span class="hljs-string">"localhost:2181,localhost:2182,localhost:2183"</span> check=<span class="hljs-string">"false"</span>/&gt;</code></pre>
+<p><strong>① 使用只订阅方式</strong></p>
+<p>当在服务提供端使用 <code>register="false"</code> 的时候，我们使用下面的方式获取服务端的服务；</p>
+<pre class="hljs java"><code>&lt;dubbo:reference cluster=<span class="hljs-string">"failover"</span> retries=<span class="hljs-string">"2"</span> check=<span class="hljs-string">"false"</span> id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>/&gt;</code></pre>
+<p><strong>启动信息</strong><br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LWMwOTZiOTQ5MjNhZGMyMzEucG5n" alt="图片.png" title="图片.png"></span><br>发现，这时候并不是向<code>注册中心 zookeeper</code> 注册，而只是做了<code>发布服务和启动netty</code>。</p>
+<p><strong>② 不使用只订阅方式</strong></p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181,localhost:2182,localhost:2183"</span> <span class="hljs-attr">check</span>=<span class="hljs-string">"false"</span>/&gt;</span></code></pre>
+<p><strong>启动信息</strong><br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LTgxY2ViNjM4OWJhODdiOWEucG5n" alt="" title=""></span></p>
+<p>可以发现，这里就向注册中心 zookeeper 注册了。</p>
+<h4>6.6 只注册</h4>
+<p>只注册正好跟前面的只订阅相反，这个时候可以向注册中心注册，但是，消费端却不能够读到服务。</p>
+<p><strong>应用场景</strong></p>
+<blockquote>如果有两个镜像环境，两个注册中心，有一个服务只在其中一个注册中心有部署，另一个注册中心还没来得及部署，而两个注册中心的其它应用都需要依赖此服务。这个时候，可以让服务提供者方只注册服务到另一注册中心，而不从另一注册中心订阅服务。</blockquote>
+<p><strong>使用说明</strong></p>
+<pre class="hljs xml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">subscribe</span>=<span class="hljs-string">"false"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">dubbo:registry</span>&gt;</span></code></pre>
+<p>在服务端的 <code>dubbo:registry</code> 节点下使用 <code>subscribe="false"</code> 来声明这个服务是只注册的服务。</p>
+<p>这个时候消费端调用的时候是不能调用的。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy81ODI0MDE2LThhYjI1MDIxZDY3N2Q5YjkucG5n" alt="" title=""></span></p>
+<h4>6.7 多协议机制</h4>
+<p>在前面我们使用的协议都是 dubbo 协议，但是 dubbo 除了支持这种协议外还支持其他的协议，比如，rmi、hessian等，另外，而且还可以用多种协议同时暴露一种服务。</p>
+<p><strong>使用方法</strong></p>
+<p><strong>① 一种接口使用一种协议</strong></p>
+<p>先声明多种协议</p>
+<pre class="hljs xml"><code> <span class="hljs-comment">&lt;!--当前服务发布所依赖的协议；webserovice、Thrift、Hessain、http--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"dubbo"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"20880"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"rmi"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"1099"</span> /&gt;</span></code></pre>
+<p>然后在发布接口的时候使用具体协议</p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+                   <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                   <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"rmi"</span>/&gt;</span></code></pre>
+<p>在输出日志中，就可以找到rmi发布的接口。</p>
+<pre class="hljs yaml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-string">rmi://192.168.234.1:1099/com.sihai.dubbo.provider.service.ProviderService?anyhost=true&amp;application=provider&amp;bean.name=com.sihai.dubbo.provider.service.ProviderService&amp;cluster=failover&amp;dubbo=2.0.2&amp;generic=false&amp;interface=com.sihai.dubbo.provider.service.ProviderService&amp;methods=SayHello&amp;owner=sihai&amp;pid=796&amp;retries=2&amp;side=provider&amp;timestamp=1564281053185,</span> <span class="hljs-attr">dubbo version:</span> <span class="hljs-number">2.6</span><span class="hljs-number">.6</span><span class="hljs-string">,</span> <span class="hljs-attr">current host:</span> <span class="hljs-number">192.168</span><span class="hljs-number">.234</span><span class="hljs-number">.1</span></code></pre>
+<p><strong>② 一种接口使用多种协议</strong><br>声明协议和上面的方式一样，在发布接口的时候有一点不一样。</p>
+<pre class="hljs cs"><code>&lt;dubbo:service cluster=<span class="hljs-string">"failover"</span> retries=<span class="hljs-string">"2"</span>
+                   <span class="hljs-keyword">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                   <span class="hljs-keyword">ref</span>=<span class="hljs-string">"providerService"</span> protocol=<span class="hljs-string">"rmi,dubbo"</span>/&gt;</code></pre>
+<p><strong>说明：</strong>protocol属性，可以用<code>,</code>隔开，使用多种协议。</p>
+<h4>6.8 多注册中心</h4>
+<p>Dubbo 支持同一服务向多注册中心同时注册，或者不同服务分别注册到不同的注册中心上去，甚至可以同时引用注册在不同注册中心上的同名服务。</p>
+<h5>服务端多注册中心发布服务</h5>
+<p>一个服务可以在不同的注册中心注册，当一个注册中心出现问题时，可以用其他的注册中心。</p>
+<p><strong>注册</strong></p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--多注册中心--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg1"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg2"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2182"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg3"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2183"</span>/&gt;</span></code></pre>
+<p><strong>发布服务</strong></p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">registry</span>=<span class="hljs-string">"reg1"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+                   <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                   <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"rmi"</span> <span class="hljs-attr">registry</span>=<span class="hljs-string">"reg2"</span>/&gt;</span></code></pre>
+<p><strong>说明：</strong>使用<code>registry="reg2"</code>指定该接口使用的注册中心，同时也可以使用多个，用<code>，</code>隔开，例如，<code>registry="reg1,,reg2"</code>。</p>
+<h5>消费端多注册中心引用服务</h5>
+<p>首先，先向不同注册中心注册;</p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--多注册中心--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg1"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2181"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg2"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2182"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:registry</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"zookeeper"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"reg3"</span> <span class="hljs-attr">timeout</span>=<span class="hljs-string">"10000"</span> <span class="hljs-attr">address</span>=<span class="hljs-string">"localhost:2183"</span>/&gt;</span>
+</code></pre>
+<p>其次，不同的消费端服务引用使用不同的注册中心；</p>
+<pre class="hljs java"><code>!--不同的服务使用不同的注册中心--&gt;
+    &lt;dubbo:reference cluster=<span class="hljs-string">"failover"</span> retries=<span class="hljs-string">"2"</span> check=<span class="hljs-string">"false"</span> id=<span class="hljs-string">"providerService"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span> registry=<span class="hljs-string">"reg1"</span>/&gt;
+    &lt;dubbo:reference cluster=<span class="hljs-string">"failover"</span> retries=<span class="hljs-string">"2"</span> check=<span class="hljs-string">"false"</span> id=<span class="hljs-string">"providerService2"</span>
+                     <span class="hljs-class"><span class="hljs-keyword">interface</span></span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span> registry=<span class="hljs-string">"reg2"</span>/&gt;</code></pre>
+<p><strong>说明：</strong>上面分别使用注册中心1和注册中心2。</p>
+<h4>6.9 多版本</h4>
+<p>不同的服务是有版本不同的，版本可以更新并且升级，同时，不同的版本之间是不可以调用的。</p>
+<pre class="hljs xml"><code><span class="hljs-comment">&lt;!--服务发布的配置，需要暴露的服务接口--&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+            <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+            <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">registry</span>=<span class="hljs-string">"reg1"</span> <span class="hljs-attr">version</span>=<span class="hljs-string">"1.0.0"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:service</span> <span class="hljs-attr">cluster</span>=<span class="hljs-string">"failover"</span> <span class="hljs-attr">retries</span>=<span class="hljs-string">"2"</span>
+                   <span class="hljs-attr">interface</span>=<span class="hljs-string">"com.sihai.dubbo.provider.service.ProviderService"</span>
+                   <span class="hljs-attr">ref</span>=<span class="hljs-string">"providerService"</span> <span class="hljs-attr">protocol</span>=<span class="hljs-string">"rmi"</span> <span class="hljs-attr">registry</span>=<span class="hljs-string">"reg2"</span> <span class="hljs-attr">version</span>=<span class="hljs-string">"1.0.0"</span>/&gt;</span></code></pre>
+<p>加入了版本控制。</p>
+<h4>6.10 日志管理</h4>
+<p>dubbo 也可以将日志信息记录或者保存到文件中的。</p>
+<p>① 使用accesslog输出到log4j</p>
+<pre class="hljs xml"><code><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">accesslog</span>=<span class="hljs-string">"true"</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"dubbo"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"20880"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">accesslog</span>=<span class="hljs-string">"true"</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"rmi"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"1099"</span> /&gt;</span></code></pre>
+<p>② 输出到文件</p>
+<pre class="hljs xml"><code><span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">accesslog</span>=<span class="hljs-string">"http://localhost/log.txt"</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"dubbo"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"20880"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">dubbo:protocol</span> <span class="hljs-attr">accesslog</span>=<span class="hljs-string">"http://localhost/log2.txt"</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"rmi"</span> <span class="hljs-attr">port</span>=<span class="hljs-string">"1099"</span> /&gt;</span></code></pre>
+<h3 id="item-7">七 总结</h3>
+<p>这篇文章就到这里了，主要讲了一下几个内容<br>1、为什么需要dubbo<br>2、dubbo架构简析<br>3、dubbo入门<br>4、zookeeper注册中心加入dubbo<br>5、dubbo多种配置方式（xml、api、注解）<br>6、常用场景介绍<br>下一篇文章，将讲讲源码分析。</p>
+<blockquote>文章有不当之处，欢迎指正，如果喜欢微信阅读，你也可以关注我的<strong>微信公众号</strong>：<code>好好学java</code>，获取优质学习资源。</blockquote>
+
+                                                </article>
+
+                                                <script type="text/javascript">
+                                                    OA_show(3);
+                                                </script><div id="OA_holder_3"><div class="d-none d-lg-flex justify-content-center">
+<script async="" src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- 中部横幅广告位 -->
+<ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px" data-ad-client="ca-pub-6330872677300335" data-ad-slot="5598290435" data-adsbygoogle-status="done"><ins id="aswift_0_expand" style="display:inline-table;border:none;height:90px;margin:0;padding:0;position:relative;visibility:visible;width:728px;background-color:transparent;"><ins id="aswift_0_anchor" style="display:block;border:none;height:90px;margin:0;padding:0;position:relative;visibility:visible;width:728px;background-color:transparent;"><iframe id="aswift_0" name="aswift_0" style="left:0;position:absolute;top:0;border:0;width:728px;height:90px;" sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation-by-user-activation" width="728" height="90" frameborder="0" src="https://googleads.g.doubleclick.net/pagead/ads?client=ca-pub-6330872677300335&amp;output=html&amp;h=90&amp;slotname=5598290435&amp;adk=207822121&amp;adf=2801183808&amp;w=728&amp;lmt=1601348162&amp;psa=1&amp;guci=2.2.0.0.2.2.0.0&amp;format=728x90&amp;url=https%3A%2F%2Fsegmentfault.com%2Fa%2F1190000019896723&amp;flash=0&amp;wgl=1&amp;adsid=NT&amp;dt=1601348064405&amp;bpp=8&amp;bdt=1079&amp;idt=40&amp;shv=r20200924&amp;cbv=r20190131&amp;ptt=9&amp;saldr=aa&amp;abxe=1&amp;cookie=ID%3D5813cda961c0dbb5%3AT%3D1585620080%3AS%3DALNI_MbTvMlgfxLYw-zaerBO-0oJuGuX0w&amp;prev_fmts=300x250%2C0x0&amp;nras=1&amp;correlator=1799736351849&amp;frm=20&amp;pv=1&amp;ga_vid=166185024.1585620079&amp;ga_sid=1601348065&amp;ga_hid=756388677&amp;ga_fc=0&amp;iag=0&amp;icsg=9277811200&amp;dssz=34&amp;mdo=0&amp;mso=8&amp;u_tz=480&amp;u_his=2&amp;u_java=0&amp;u_h=1080&amp;u_w=1920&amp;u_ah=1040&amp;u_aw=1920&amp;u_cd=24&amp;u_nplug=2&amp;u_nmime=2&amp;adx=426&amp;ady=30413&amp;biw=1903&amp;bih=938&amp;scr_x=0&amp;scr_y=26668&amp;oid=3&amp;psts=AGkb-H-AiAHiI08TmtQguMupg8Trh0h4jyv6Tp2Fg6QeGk3vVnMYop6hiOHX95iUQrcMzg&amp;pvsid=1500714476139202&amp;pem=948&amp;ref=https%3A%2F%2Fsegmentfault.com%2Fuser%2Fbinding%3Fsite%3D&amp;rx=0&amp;eae=0&amp;fc=896&amp;brdim=0%2C0%2C0%2C0%2C1920%2C0%2C1920%2C1040%2C1920%2C938&amp;vis=1&amp;rsz=%7C%7CeEbr%7C&amp;abl=CS&amp;pfx=0&amp;fu=8200&amp;bc=31&amp;ifi=1&amp;uci=a!1&amp;btvi=1&amp;fsb=1&amp;xpc=2MPU9tDlkq&amp;p=https%3A//segmentfault.com&amp;dtd=98007" marginwidth="0" marginheight="0" vspace="0" hspace="0" allowtransparency="true" scrolling="no" allowfullscreen="true" data-google-container-id="a!1" data-google-query-id="CKapvuOujewCFcyjlgodXJMIGA" data-load-complete="true"></iframe></ins></ins></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script><div id="beacon_1312d2fb36" style="position: absolute; left: 0px; top: 0px; visibility: hidden;"><img src="https://sponsor.segmentfault.com/lg.php?bannerid=2&amp;campaignid=1&amp;zoneid=3&amp;loc=https%3A%2F%2Fsegmentfault.com%2Fa%2F1190000019896723&amp;referer=https%3A%2F%2Fsegmentfault.com%2Fuser%2Fbinding%3Fsite%3D&amp;cb=1312d2fb36" width="0" height="0" alt="" style="width: 0px; height: 0px;"></div></div>
+</div>
+
+                                                <div class="text-secondary font-size-14 mt-3 mb-5 d-flex justify-content-between row">
+                                                                                                            <div class="col-6 text-secondary" id="sf-article_metas" data-viewsword="131679">阅读
+                                                            131.7k<span class="split-dot"></span>
+                                                            <time datetime="2019-07-28T12:48:12+08:00" itemprop="datePublished">发布于
+                                                                2019-07-28 </time>
+                                                        </div>
+                                                                                                        <div class="operation col-6 text-right">
+                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                    </div>
+                                                </div>
+
+                                                <div class="functional-area-bottom"><div class="text-center"><div class="btn-group like-group mr-2" role="group">
+            <button data-type="question" class="func-btn mainLike like-btn btn btn-outline-primary 
+                            " data-id="1190000019896723">
+                            <svg class="svg-inline--fa fa-thumbs-up fa-w-16" aria-hidden="true" focusable="false" data-prefix="far" data-icon="thumbs-up" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" data-fa-i2svg=""><path fill="currentColor" d="M466.27 286.69C475.04 271.84 480 256 480 236.85c0-44.015-37.218-85.58-85.82-85.58H357.7c4.92-12.81 8.85-28.13 8.85-46.54C366.55 31.936 328.86 0 271.28 0c-61.607 0-58.093 94.933-71.76 108.6-22.747 22.747-49.615 66.447-68.76 83.4H32c-17.673 0-32 14.327-32 32v240c0 17.673 14.327 32 32 32h64c14.893 0 27.408-10.174 30.978-23.95 44.509 1.001 75.06 39.94 177.802 39.94 7.22 0 15.22.01 22.22.01 77.117 0 111.986-39.423 112.94-95.33 13.319-18.425 20.299-43.122 17.34-66.99 9.854-18.452 13.664-40.343 8.99-62.99zm-61.75 53.83c12.56 21.13 1.26 49.41-13.94 57.57 7.7 48.78-17.608 65.9-53.12 65.9h-37.82c-71.639 0-118.029-37.82-171.64-37.82V240h10.92c28.36 0 67.98-70.89 94.54-97.46 28.36-28.36 18.91-75.63 37.82-94.54 47.27 0 47.27 32.98 47.27 56.73 0 39.17-28.36 56.72-28.36 94.54h103.99c21.11 0 37.73 18.91 37.82 37.82.09 18.9-12.82 37.81-22.27 37.81 13.489 14.555 16.371 45.236-5.21 65.62zM88 432c0 13.255-10.745 24-24 24s-24-10.745-24-24 10.745-24 24-24 24 10.745 24 24z"></path></svg><!-- <i class="far fa-thumbs-up"></i> -->
+                            <span class="ml-1">赞</span> <span class="mainLikeNum">186</span>
+                        </button></div><button class="func-btn mainBookmark btn btn-outline-secondary 
+                                mr-2 " data-id="1190000019896723">
+                                <svg class="svg-inline--fa fa-bookmark fa-w-12" aria-hidden="true" focusable="false" data-prefix="far" data-icon="bookmark" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" data-fa-i2svg=""><path fill="currentColor" d="M336 0H48C21.49 0 0 21.49 0 48v464l192-112 192 112V48c0-26.51-21.49-48-48-48zm0 428.43l-144-84-144 84V54a6 6 0 0 1 6-6h276c3.314 0 6 2.683 6 5.996V428.43z"></path></svg><!-- <i class="far fa-bookmark"></i> -->
+                                <span class="ml-1">收藏</span> <span class="bookmarkNum">123</span>
+                            </button><div class="dropdown dropup d-inline-block">
+                        <button class="func-btn btn btn-outline-secondary
+                        " id="func_share" data-toggle="dropdown">
+                        <svg class="svg-inline--fa fa-share-alt fa-w-14" aria-hidden="true" focusable="false" data-prefix="far" data-icon="share-alt" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" data-fa-i2svg=""><path fill="currentColor" d="M352 320c-25.6 0-48.9 10-66.1 26.4l-98.3-61.5c5.9-18.8 5.9-39.1 0-57.8l98.3-61.5C303.1 182 326.4 192 352 192c53 0 96-43 96-96S405 0 352 0s-96 43-96 96c0 9.8 1.5 19.6 4.4 28.9l-98.3 61.5C144.9 170 121.6 160 96 160c-53 0-96 43-96 96s43 96 96 96c25.6 0 48.9-10 66.1-26.4l98.3 61.5c-2.9 9.4-4.4 19.1-4.4 28.9 0 53 43 96 96 96s96-43 96-96-43-96-96-96zm0-272c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48 21.5-48 48-48zM96 304c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zm256 160c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48z"></path></svg><!-- <i class="far fa-share-alt"></i> -->
+                        <span class="ml-1 show-row">分享</span>
+                        </button>
+                        <div class="dropdown-menu shareContent" aria-labelledby="func_share">
+                            <div class="text-center mt-2" style="cursor: auto">
+                                <div class="qr"><img crossorigin="anonymous" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHYAAAB2CAYAAAAdp2cRAAAGrklEQVR4Xu2ca5LiMAyEd+409z8Bd2ILKkURNvantuSQZHv+ytajuyU7Aebnfr/f//jvcgj8PIj9/f3dtbDb7baKR/E/11OyWX+0n+Kr9ZE/1f6Ib2I3UDOxqpSW9aqi3bEa0O7YBl6X7Vi1Q0hPn0BV+8/Gp/zIno1P+8m+ld/mGVsNfBYYKozsFD9rz8an/WQ3scEznu4AqvBJOEQc2U2sidWeMz8VpSpeVfTsy42a/0hHve9R64nkFzpjZwTuFUajTs1nb+F9xiPhqvWY2EYrRYDJCM/ELgiQogkoGoXu2ODlgoDMdsRsIrKjj+onIRI+5J/2N9880caKwMrlgfLJ2tV6aL2JbYxid2xfOhEhH/JWbGL/E2Jp9EUUvOct16M4OIpN7BqBiJBPMYpNrIl9IkDPxWQnIan7aX328es0HwIQEHSG0eWL9tOoq/ZPQiK7iW0gREKijlLfbdN6IjIizNAZqwaKBO75JKDJf3VHmdjBjiCiSOGzgZ/tf0bjHPLrp3TGnd2eJZL2H/ZbimcnjvInYrJ2E9t4QULEZO1Z4mi/ib06saSAve10Kyb77MuYeuveG79HvOfl6RuBM487JpYZM7EbGNHjjTuWhbW5gjqS7B7FyyhWFaoqlogg+6A+hrdl81H3q/hHbuUlLyjUN0ORxIZZKdioEvPtCRH+EEDFxsSuEVOF4Y5VFTe4XiXmNB1LHZgthPCuBjZ7J6B86Wih/Wp+EfxLPrbLEhFJVAGHRhsJl/YTEep+8ke1h89YKryaiGp/BCzVR/uJCHU/+TOxCwIE7H9DLCmC7AQk7c8qlvxnjwraT/WTkNT8I3iVvFKkwijxSKKqj/f1RAz5pv1Uv4ldEM4CMfvMVm/B2XpGhOOOpXYd+J5y9QSaRiyNIrVDRhLtjdYAN6sl1HFkV+Op69UObz7uUGAT+91/IjrCT2gUm1gT+xQXCcGjuN+D00YxEUOjgc5culxQ/Go71UNAUz7kP4vXlv/NUfztRCl+tZ2AN7ENhNTRW01c9pZrYk3sEwESAk0ItRHCo5gC05lAhamJq+sp/9kTIYsP7af6Xr8EoIVkJ6DURNXRSUKi+BRPtavxVHxpvYldEFKJywo5K0QTGzzzL0useoZVrycFfvu5Vx2t1NGz8XuN4upA1AEqkSZWe6VpYhfFUIe5Y4OXEXdsvwOzE6+sY/e45fXEUN1xqvDoKFP9EZ6RekO/3SEFUSI0yqhw8h8p9D2Gup7yM7GNM42AM7FrhCLCdMfu8G6XhEu3fpp4W8IPEUuJ0ajO7if/ZCfgIh3QG+XZ+rL7TWzw1q6O/iwx2f0m1sSShtZ2dRRmRyONTrqlUr6X6ViNxn9XE9Dkv3o/xVPtWaJVIZEwqTEe9tDXTwmIamIISLolUr6qnfIhIkxs4wwkIghY2k92E1tEDAHpju3fcV6jWB2l2fWzO4T80xmVrY+ESRNGHd1b9Q79D4ps4QR8Fhjyb2IbCJnYNTDVeLhj1dZsrM8CeVhiCR9KnOyqf1qfJYL8q2cg+cvaR/ANPceSY7JTYQRk9ZmYzYfuAORftY/ga2I3UCahmdigNAlId+z6O1IRYYV+Rkn80JmXJSZLPOVPLzzU+tR46noTqyK2rKczTRXaYBrNbSZ2EFETuwCnjipaT3biK6Lono/LEkvAVdvV0UbEq3a1HspXFRb5U/N7xA897qiO1fVqYSpx1IHV+ZrYxmWFgDaxfYTcsaSghp0mzGE6lhIdrD91XX/fXJ0fAU+jm/LJTpTsc/9jf8kXxlXiCVh6YaDGI6AoHhFF/vcWiokNjloTG2wld+xthVT1aG92rAo88UmjSB2Fe8ej/Mmu5psd7Sa28bhFo1e1m9gg0CpQNIGo47J2NV937ODlRx39lyWWDvcKhfWeW9WOU/Ohjprtr9r/682TqkgCInsGUT7UcdVAzfZX7d/EkkIbdhLuoNvXtqx/EzvIQBZ4Cpv1fxhiafRmz3ga3Vkg9yCqF2MLv9Bvd7LAqsRlgVYvW9l4JnZBgIAkuwqkOzYIvAqsO1Z7N0y35IhQDzmKSThq4ao/Wk9Crd5P8U5zxhIwJrY/AQ57KzaxawTcsaoiBtcT0ORW3U/rh0cxJUp2NTHyp45ielyjxyPKh+qLXHbe15A/sj98hS5PVBjZKRECnvwTMeSf9lN8qs/EEoINOxFjYhvPsYN4v7aRogl4im9i17fk5igmILP22W+WaPRR/tVCIeESHqrdxO402k0stdLgUUHAzr5lU3y1I+loc8devWODjeJlJ0LgLwKgD1Masw8xAAAAAElFTkSuQmCC" width="118" height="118" style="width: 118px; height: 118px;"></div>
+                                扫一扫分享
+                            </div>
+                            <div class="dropdown-divider"></div>
+                        <a class="dropdown-item share_weibo" data-share="weibo" href="http://weibo.com/segmentfault" target="_blank"><svg class="svg-inline--fa fa-weibo fa-w-16 fa-fw" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="weibo" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" data-fa-i2svg=""><path fill="currentColor" d="M407 177.6c7.6-24-13.4-46.8-37.4-41.7-22 4.8-28.8-28.1-7.1-32.8 50.1-10.9 92.3 37.1 76.5 84.8-6.8 21.2-38.8 10.8-32-10.3zM214.8 446.7C108.5 446.7 0 395.3 0 310.4c0-44.3 28-95.4 76.3-143.7C176 67 279.5 65.8 249.9 161c-4 13.1 12.3 5.7 12.3 6 79.5-33.6 140.5-16.8 114 51.4-3.7 9.4 1.1 10.9 8.3 13.1 135.7 42.3 34.8 215.2-169.7 215.2zm143.7-146.3c-5.4-55.7-78.5-94-163.4-85.7-84.8 8.6-148.8 60.3-143.4 116s78.5 94 163.4 85.7c84.8-8.6 148.8-60.3 143.4-116zM347.9 35.1c-25.9 5.6-16.8 43.7 8.3 38.3 72.3-15.2 134.8 52.8 111.7 124-7.4 24.2 29.1 37 37.4 12 31.9-99.8-55.1-195.9-157.4-174.3zm-78.5 311c-17.1 38.8-66.8 60-109.1 46.3-40.8-13.1-58-53.4-40.3-89.7 17.7-35.4 63.1-55.4 103.4-45.1 42 10.8 63.1 50.2 46 88.5zm-86.3-30c-12.9-5.4-30 .3-38 12.9-8.3 12.9-4.3 28 8.6 34 13.1 6 30.8.3 39.1-12.9 8-13.1 3.7-28.3-9.7-34zm32.6-13.4c-5.1-1.7-11.4.6-14.3 5.4-2.9 5.1-1.4 10.6 3.7 12.9 5.1 2 11.7-.3 14.6-5.4 2.8-5.2 1.1-10.9-4-12.9z"></path></svg><!-- <i class="fab fa-weibo fa-fw"></i> --> 新浪微博</a><a class="dropdown-item share_twitter" data-share="twitter" href="https://twitter.com/segment_fault" target="_blank"><svg class="svg-inline--fa fa-twitter fa-w-16 fa-fw" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="twitter" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" data-fa-i2svg=""><path fill="currentColor" d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"></path></svg><!-- <i class="fab fa-twitter fa-fw"></i> --> Twitter</a><a class="dropdown-item share_facebook" data-share="facebook" href="javascript:;" target="_blank"><svg class="svg-inline--fa fa-facebook-square fa-w-14 fa-fw" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="facebook-square" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" data-fa-i2svg=""><path fill="currentColor" d="M400 32H48A48 48 0 0 0 0 80v352a48 48 0 0 0 48 48h137.25V327.69h-63V256h63v-54.64c0-62.15 37-96.48 93.67-96.48 27.14 0 55.52 4.84 55.52 4.84v61h-31.27c-30.81 0-40.42 19.12-40.42 38.73V256h68.78l-11 71.69h-57.78V480H400a48 48 0 0 0 48-48V80a48 48 0 0 0-48-48z"></path></svg><!-- <i class="fab fa-facebook-square fa-fw"></i> --> Facebook</a></div>
+                    </div></div></div>
+
+                                                <div class="text-center mb-5 mt-3 text-secondary font-size-14">
+                                                    本作品系
+                                                    原创，                                                                                                            <a target="_blank" class="text-secondary" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">采用《署名-非商业性使用-禁止演绎 4.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                国际》许可协议</a>
+                                                                                                    </div>
+                                                <hr class="mb-0">
+                                                <div class="article-author d-flex flex-sm-row align-items-center pt-4 row">
+                                                    <div class="d-flex align-items-center flex-grow-1 author-left col-sm-9 col-12">
+                                                        <a href="/u/sihai_5ae5ba9170388">
+                                                            <img class="rounded-circle mr-3" width="64" src="https://avatar-static.segmentfault.com/169/460/1694605782-5d897fe332c6e_big64" aria-hidden="true">
+                                                        </a>
+                                                        <div>
+                                                            <h5>
+                                                                <a class="text-body" href="/u/sihai_5ae5ba9170388">欧阳思海</a>
+                                                            </h5>
+                                                            <ul class="list-inline mb-0 authentication-info">
+                                                                                                                                <li class="list-inline-item">
+                                                                    <svg class="svg-inline--fa fa-dice-d8 fa-w-16" style="color: #BF7158;" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="dice-d8" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" data-fa-i2svg=""><path fill="currentColor" d="M225.53 2.52L2.36 233.83c-4.21 4.37-2.56 11.71 3.1 13.77l234.13 85.06V8.39c-.01-7.49-8.91-11.21-14.06-5.87zm284.11 231.31L286.47 2.52C281.32-2.82 272.41.9 272.41 8.4v324.27l234.13-85.06c5.66-2.07 7.31-9.42 3.1-13.78zM33.53 310.38l192 199.1c5.15 5.34 14.06 1.62 14.06-5.88V368.29L42.13 296.61c-8.21-2.98-14.72 7.43-8.6 13.77zm436.34-13.77l-197.46 71.68V503.6c0 7.5 8.91 11.22 14.06 5.88l192-199.1c6.12-6.34-.39-16.75-8.6-13.77z"></path></svg><!-- <i class="fas fa-dice-d8" style="color:#BF7158"></i> -->
+                                                                    <span style="color: #BF7158; font-size:16px; font-weight:bold">2.6k</span>
+                                                                </li>
+                                                                                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                    <div class="author-right flex-shrink-0 col-sm-3 col-12 text-sm-right text-left mt-sm-0 mt-3">
+                                                                                                                                                                            <button type="button" class="btn btn-primary follow-user sf_do" data-dotype="post" data-content="{&quot;type&quot;:&quot;state&quot;,&quot;state&quot;:false,&quot;true&quot;:&quot;\u5173\u6ce8\u4f5c\u8005&quot;,&quot;false&quot;:&quot;\u5df2\u7ecf\u5173\u6ce8&quot;}" data-api="/iteration/api/user/1030000014667533/follow">关注作者
+                                                            </button>
+                                                                                                            </div>
+                                                </div>
+                                            </div>
