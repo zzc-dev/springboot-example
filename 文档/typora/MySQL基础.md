@@ -401,9 +401,9 @@ sum 求和、avg 平均值、max 最大值 、min 最小值 、count 计算个�
 	解决办法：添加上连接条件
 	按功能分类：
 			内连接：
-				等值连接
-				非等值连接
-				自连接
+				等值连接 select * from A,B where A.id = B.id
+				非等值连接 select * from A,B where A.num > B.count
+				自连接 select * from A a1,A a2 where a1.id = a2.pid
 			外连接：
 				左外连接
 				右外连接
@@ -614,10 +614,10 @@ sql92
 ​	
 ​	);
 ​	
-	DESC studentinfo;
-	#2.修改表 alter
-	语法：ALTER TABLE 表名 ADD|MODIFY|DROP|CHANGE COLUMN 字段名 【字段类型】;
-	
+​	DESC studentinfo;
+​	#2.修改表 alter
+​	语法：ALTER TABLE 表名 ADD|MODIFY|DROP|CHANGE COLUMN 字段名 【字段类型】;
+​	
 	#①修改字段名
 	ALTER TABLE studentinfo CHANGE  COLUMN sex gender CHAR;
 	
@@ -636,7 +636,7 @@ sql92
 ​	
 ​	#3.删除表
 ​	
-	DROP TABLE [IF EXISTS] studentinfo;
+​	DROP TABLE [IF EXISTS] studentinfo;
 
 
 ​	
@@ -793,11 +793,11 @@ sql92
 ​	SELECT last_name FROM employees
 ​	WHERE employee_id>100;
 ​	
-	#方式二:
-	ALTER VIEW test_v7
-	AS
-	SELECT employee_id FROM employees;
-	
+​	#方式二:
+​	ALTER VIEW test_v7
+​	AS
+​	SELECT employee_id FROM employees;
+​	
 	SELECT * FROM test_v7;
 ###视图的删除
 	DROP VIEW test_v1,test_v2,test_v3;
