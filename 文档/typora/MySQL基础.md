@@ -201,7 +201,7 @@
 
 
 ## 4. 进阶4：常见函数
-###  一、单行函数
+###  4.1、单行函数
 
 #### 	1、字符函数
 
@@ -341,7 +341,7 @@ FROM employees;
 ​	database 当前库
 ​	user 当前连接用户
 
-### 二、分组函数
+### 4.2、分组函数
 
 
 		sum 求和
@@ -458,8 +458,7 @@ sql92
 	FROM employees e,employees m 
 	WHERE e.`manager_id`=m.`employee_id`;
 
-
-##进阶7：子查询
+## 7. 进阶7：子查询
 
 含义：
 
@@ -485,7 +484,31 @@ sql92
 		in： 属于子查询结果中的任意一个就行
 		any和all往往可以用其他查询代替
 
-##进阶8：分页查询
+分类：	
+```
+按子查询出现的位置：
+select后面：
+	仅仅支持标量子查询
+from后面：
+	支持表子查询
+where或having后面：★
+	标量子查询（单行） √
+	列子查询  （多行） √
+	
+	行子查询
+	
+exists后面（相关子查询）
+	表子查询
+	
+按结果集的行列数不同：
+标量子查询（结果集只有一行一列）
+列子查询（结果集只有一列多行）
+行子查询（结果集有一行多列）
+表子查询（结果集一般为多行多列）
+```
+
+
+## 8. 进阶8：分页查询
 
 应用场景：
 
@@ -512,7 +535,7 @@ sql92
 	每页显示条目数sizePerPage
 	要显示的页数 page
 
-##进阶9：联合查询
+## 9. 进阶9：联合查询
 
 引入：
 	union 联合、合并
@@ -531,14 +554,37 @@ sql92
 	2、多条查询语句的查询的列的类型几乎相同
 	3、union代表去重，union all代表不去重
 
+# DML语言
 
-##DML语言
+数据操作语言：
+	插入：insert
+	修改：update
+	删除：delete
 
-###插入
+## 1. 插入
 
 语法：
+
+```
+方式1：
 	insert into 表名(字段名，...)
 	values(值1，...);
+
+方式2：
+	insert into 表名
+	set 列名=值,列名=值,...
+
+比较：
+     1 .方式一支持插入多行,方式二不支持
+     2. 方式一支持子查询，方式二不支持
+
+INSERT INTO beauty(id,NAME,phone)
+SELECT 26,'宋茜','11809866';
+
+INSERT INTO beauty(id,NAME,phone)
+SELECT id,boyname,'1234567'
+FROM boys WHERE id<3;
+```
 
 特点：
 
@@ -548,7 +594,7 @@ sql92
 	4、字段个数和值的个数必须一致
 	5、字段可以省略，但默认所有字段，并且顺序和表中的存储顺序一致
 
-###修改
+## 2. 修改
 
 修改单表语法：
 
@@ -561,8 +607,7 @@ sql92
 	where 连接条件
 	and 筛选条件
 
-
-###删除
+## 3. 删除
 
 方式1：delete语句 
 
@@ -580,9 +625,8 @@ sql92
 
 	truncate table 表名
 
+<strong style="color:red">  两种方式的区别【面试题】</strong>	
 
-两种方式的区别【面试题】
-	
 	#1.truncate不能加where条件，而delete可以加where条件
 	
 	#2.truncate的效率高一丢丢
@@ -592,70 +636,145 @@ sql92
 	
 	#4.truncate删除不能回滚，delete删除可以回滚
 
+# DDL语句
+数据定义语言
 
-##DDL语句
-###库和表的管理
+## 1. 库和表的管理
+
 库的管理：
 
 	一、创建库
 	create database 库名
 	二、删除库
 	drop database 库名
+	三、更改库的字符集
+	ALTER DATABASE books CHARACTER SET gbk;
 表的管理：
-	#1.创建表
-	
+
+	一、创建表
 	CREATE TABLE IF NOT EXISTS stuinfo(
 		stuId INT,
 		stuName VARCHAR(20),
 		gender CHAR,
 		bornDate DATETIME
-
-
-​	
-​	);
-​	
-​	DESC studentinfo;
-​	#2.修改表 alter
-​	语法：ALTER TABLE 表名 ADD|MODIFY|DROP|CHANGE COLUMN 字段名 【字段类型】;
-​	
-	#①修改字段名
-	ALTER TABLE studentinfo CHANGE  COLUMN sex gender CHAR;
+	);
 	
-	#②修改表名
-	ALTER TABLE stuinfo RENAME [TO]  studentinfo;
-	#③修改字段类型和列级约束
-	ALTER TABLE studentinfo MODIFY COLUMN borndate DATE ;
+	二、查看表的详细信息
+	 DESC studentinfo;
 	
-	#④添加字段
+	三、修改表名
+	 ALTER TABLE stuinfo RENAME [TO]  studentinfo;
 	
-	ALTER TABLE studentinfo ADD COLUMN email VARCHAR(20) first;
-	#⑤删除字段
-	ALTER TABLE studentinfo DROP COLUMN email;
+	四、修改列
+	 ALTER TABLE 表名 ADD|MODIFY|DROP|CHANGE COLUMN 字段名 【字段类型】;
+	 ①修改字段名
+	  ALTER TABLE studentinfo CHANGE  COLUMN sex gender CHAR;
+	 ②修改字段类型和列级约束
+	  ALTER TABLE studentinfo MODIFY COLUMN borndate DATE;
+	 ③添加字段
+	  ALTER TABLE studentinfo ADD COLUMN email VARCHAR(20) first;
+	 ④删除字段
+	  ALTER TABLE studentinfo DROP COLUMN email;
+	  
+	五、删除表
+	  DROP TABLE [IF EXISTS] studentinfo;	
+	
+	六、表的复制
+	 1.仅仅复制表的结构
+	   CREATE TABLE copy LIKE author;
+	 2.复制表的结构+数据
+	   CREATE TABLE copy SELECT * FROM author;
+	 3.只复制部分数据
+	   CREATE TABLE copy SELECT id,au_name FROM author WHERE nation='中国';
+	 4.仅仅复制某些字段
+	   CREATE TABLE copy SELECT id,au_name FROM author WHERE 0;
+
+## 2. 常见数据类型
+
+### 整型
+
+​               tinyint、smallint、mediumint、int/integer、bigint
+字节数        1	          2		           3	               4		           8
+
+特点：
+① 如果不设置无符号还是有符号，默认是有符号，如果想设置无符号，需要添加unsigned关键字
+② 如果插入的数值超出了整型的范围,会报out of range异常，并且插入临界值
+③ 如果不设置长度，会有默认的长度
+长度代表了显示的最大宽度，如果不够会用0在左边填充，但必须搭配zerofill使用！
+
+### 小数
+分类：
+    1.浮点型
+        float(M,D)
+       double(M,D)
+    2.定点型
+       dec(M，D)
+       decimal(M,D)
+
+特点：
+
+①M：整数部位+小数部位 D：小数部位
+    如果超过范围，则插入临界值
+
+②M和D都可以省略
+   如果是decimal，则M默认为10，D默认为0
+   如果是float和double，则会根据插入的数值的精度来决定精度
+
+③定点型的精确度较高，如果要求插入数值的精度较高如货币运算等则考虑使用
+
+原则：
+所选择的类型越简单越好，能保存数值的类型越小越好
+
+### 字符型
+较短的文本：
+
+ 	char
+	 varchar
+
+其他：
+
+binary和varbinary用于保存较短的二进制
+enum用于保存枚举
+set用于保存集合
 
 
-​	
-​	#3.删除表
-​	
-​	DROP TABLE [IF EXISTS] studentinfo;
+较长的文本：
+text
+blob(较大的二进制)
+
+特点：
+
+	          写法		M的意思					     特点		空间的耗费	    效率
+	char	char(M)		最大的字符数，可以省略，默认为1  固定长度的字符	比较耗费	    高
+	
+	varchar varchar(M)	最大的字符数，不可以省略		可变长度的字符	  比较节省	      低
+### 日期型
+
+分类：
+	date只保存日期
+	time 只保存时间
+	year只保存年
+
+​	datetime保存日期+时间
+​	timestamp保存日期+时间
 
 
-​	
+特点：
 
-
-###常见类型
-
-	整型：
-		
-	小数：
-		浮点型
-		定点型
-	字符型：
-	日期型：
-	Blob类型：
-
-
-
-###常见约束
+		       字节		范围		时区等的影响
+	datetime    8	  1000——9999	 不受
+	timestamp	4	  1970-2038	     受
+	
+	CREATE TABLE tab_date(
+		t1 DATETIME,
+		t2 TIMESTAMP
+	);
+	
+	INSERT INTO tab_date VALUES(NOW(),NOW());
+	SELECT * FROM tab_date;
+	SHOW VARIABLES LIKE 'time_zone';
+	SET time_zone='+9:00';
+## 3. 常见约束
 
 	NOT NULL
 	DEFAULT
@@ -798,12 +917,12 @@ sql92
 ​	AS
 ​	SELECT employee_id FROM employees;
 ​	
-	SELECT * FROM test_v7;
+​	SELECT * FROM test_v7;
 ###视图的删除
-	DROP VIEW test_v1,test_v2,test_v3;
+​	DROP VIEW test_v1,test_v2,test_v3;
 ###视图结构的查看	
-	DESC test_v7;
-	SHOW CREATE VIEW test_v7;
+​	DESC test_v7;
+​	SHOW CREATE VIEW test_v7;
 
 ##存储过程
 
