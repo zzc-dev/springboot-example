@@ -776,62 +776,80 @@ blob(较大的二进制)
 	SET time_zone='+9:00';
 ## 3. 常见约束
 
-	NOT NULL
-	DEFAULT
-	UNIQUE
-	CHECK
-	PRIMARY KEY
-	FOREIGN KEY
-
-##数据库事务
-###含义
-	通过一组逻辑操作单元（一组DML——sql语句），将数据从一种状态切换到另外一种状态
-
-###特点
-	（ACID）
-	原子性：要么都执行，要么都回滚
-	一致性：保证数据的状态操作前和操作后保持一致
-	隔离性：多个事务同时操作相同数据库的同一个数据时，一个事务的执行不受另外一个事务的干扰
-	持久性：一个事务一旦提交，则数据将持久化到本地，除非其他事务对其进行修改
-
-相关步骤：
-
-	1、开启事务
-	2、编写事务的一组逻辑操作单元（多条sql语句）
-	3、提交事务或回滚事务
-
-###事务的分类：
-
-隐式事务，没有明显的开启和结束事务的标志
-
-	比如
-	insert、update、delete语句本身就是一个事务
-
-
-显式事务，具有明显的开启和结束事务的标志
-
-		1、开启事务
-		取消自动提交事务的功能
+	    NOT NULL：非空，用于保证该字段的值不能为空
+			比如姓名、学号等
+		DEFAULT:默认，用于保证该字段有默认值
+			比如性别
+		PRIMARY KEY:主键，用于保证该字段的值具有唯一性，并且非空
+			比如学号、员工编号等
+		UNIQUE:唯一，用于保证该字段的值具有唯一性，可以为空
+			比如座位号
+		CHECK:检查约束【mysql中不支持】
+			比如年龄、性别
+		FOREIGN KEY:外键，用于限制两个表的关系，用于保证该字段的值必须来自于主表的关联列的值
+			在从表添加外键约束，用于引用主表中某列的值
+		    比如学生表的专业编号，员工表的部门编号，员工表的工种编号
+		    
+	主键和唯一的大对比：
+			保证唯一性  是否允许为空    一个表中可以有多少个    是否允许组合
+		主键	 √		   ×		     至多有1个           √，但不推荐
+		唯一	 √		   √		     可以有多个          √，但不推荐
 		
-		2、编写事务的一组逻辑操作单元（多条sql语句）
-		insert
-		update
-		delete
-		
-		3、提交事务或回滚事务
-###使用到的关键字
-
-	set autocommit=0;
-	start transaction;
-	commit;
-	rollback;
+	外键：
+		1、要求在从表设置外键关系
+		2、从表的外键列的类型和主表的关联列的类型要求一致或兼容，名称无要求
+		3、主表的关联列必须是一个key（一般是主键或唯一）
+		4、插入数据时，先插入主表，再插入从表
+		删除数据时，先删除从表，再删除主表
 	
-	savepoint  断点
-	commit to 断点
-	rollback to 断点
+	1、添加列级约束
+	alter table 表名 modify column 字段名 字段类型 新约束;
+	
+	2、添加表级约束
+	alter table 表名 add 【constraint 约束名】 约束类型(字段名) 【外键的引用】
 
+## 4. 数据库事务
+### 含义
+​	通过一组逻辑操作单元（一组DML——sql语句），将数据从一种状态切换到另外一种状态
 
-###事务的隔离级别:
+   TCL  Transaction Control Language 事务控制语言
+
+### 特点
+​	（ACID）
+​	**原子性**：要么都执行，要么都回滚
+​	**一致性**：保证数据的状态操作前和操作后保持一致
+​	**隔离性**：多个事务同时操作相同数据库的同一个数据时，一个事务的执行不受另外一个事务的干扰
+​	**持久性**：一个事务一旦提交，则数据将持久化到本地，除非其他事务对其进行修改
+
+### 事务的创建
+
+	1.隐式事务：事务没有明显的开启和结束的标记
+	  比如: insert、update、delete语句
+	       delete from 表 where id =1;
+	
+	2.显式事务：事务具有明显的开启和结束的标记
+	  前提：必须先设置自动提交功能为禁用(set autocommit=0;)
+	
+	3.创建显示事务
+	  步骤1：开启事务
+	        set autocommit=0;
+	        start transaction;可选的
+	  步骤2：编写事务中的sql语句(select insert update delete)
+	        语句1;
+	        语句2;
+	        ...
+	  步骤3：结束事务
+	       commit;提交事务
+	       rollback;回滚事务
+	       
+	  3.1 savepoint 的使用  
+	  	     set autocommit=0;
+	         start transaction;
+	         savepoint  断点
+	         commit to 断点
+	         rollback to 断点
+
+### 事务的隔离级别:
 
 事务并发问题如何发生？
 
@@ -842,13 +860,14 @@ blob(较大的二进制)
 	不可重复读：同一个事务中，多次读取到的数据不一致
 	幻读：一个事务读取数据时，另外一个事务进行更新，导致第一个事务读取到了没有更新的数据
 
-如何避免事务的并发问题？
+事务的隔离级别
 
-	通过设置事务的隔离级别
-	1、READ UNCOMMITTED
-	2、READ COMMITTED 可以避免脏读
-	3、REPEATABLE READ 可以避免脏读、不可重复读和一部分幻读
-	4、SERIALIZABLE可以避免脏读、不可重复读和幻读
+| 隔离级别\并发问题 | 脏读 | 不可重复读 | 幻读 |
+| :---------------- | ---- | ---------- | ---- |
+| read uncommitted  | √    | √          | √    |
+| read committed    | ×    | √          | √    |
+| repeatable read   | ×    | ×          | √    |
+| serializable      | ×    | ×          | ×    |
 
 设置隔离级别：
 
@@ -859,16 +878,17 @@ blob(较大的二进制)
 
 
 
-##视图
+## 5. 视图
 含义：理解成一张虚拟的表
 
+​    mysql5.1版本出现的新特性，是通过表动态生成的数据
+
 视图和表的区别：
-	
-		使用方式	占用物理空间
+		 使用方式	  是否占用物理空间
 	
 	视图	完全相同	不占用，仅仅保存的是sql逻辑
-	
-	表	完全相同	占用
+	 
+	表	 完全相同	 占用
 
 视图的好处：
 
@@ -876,113 +896,203 @@ blob(较大的二进制)
 	1、sql语句提高重用性，效率高
 	2、和表实现了分离，提高了安全性
 
-###视图的创建
-	语法：
-	CREATE VIEW  视图名
-	AS
-	查询语句;
-###视图的增删改查
-	1、查看视图的数据 ★
-	
-	SELECT * FROM my_v4;
-	SELECT * FROM my_v1 WHERE last_name='Partners';
-	
-	2、插入视图的数据
-	INSERT INTO my_v4(last_name,department_id) VALUES('虚竹',90);
-	
-	3、修改视图的数据
-	
-	UPDATE my_v4 SET last_name ='梦姑' WHERE last_name='虚竹';
+视图的增删改查
 
+	1、创建视图
+		CREATE VIEW  视图名
+		AS
+		查询语句;
+	
+	2、查看视图的数据
+	   SELECT * FROM my_v4;
+	   SELECT * FROM my_v1 WHERE last_name='Partners';
+	
+	3、插入视图的数据
+	   INSERT INTO my_v4(last_name,department_id) VALUES('虚竹',90);
+	
+	4、修改视图的数据
+	   UPDATE my_v4 SET last_name ='梦姑' WHERE last_name='虚竹';
+	   
+	5、删除视图的数据
+	   DELETE FROM my_v4; 
+	
+	6、视图结构的查看	
+	   DESC test_v7;
+	   SHOW CREATE VIEW test_v7;
 
-​	
-​	4、删除视图的数据
-​	DELETE FROM my_v4;
-###某些视图不能更新
-​	包含以下关键字的sql语句：分组函数、distinct、group  by、having、union或者union all
+ <Strong style="color:red">某些视图不能更新</strong>
+
+```
+   包含以下关键字的sql语句：分组函数、distinct、group  by、having、union或者union all
 ​	常量视图
 ​	Select中包含子查询
 ​	join
 ​	from一个不能更新的视图
 ​	where子句的子查询引用了from子句中的表
-###视图逻辑的更新
-​	#方式一：
-​	CREATE OR REPLACE VIEW test_v7
-​	AS
-​	SELECT last_name FROM employees
-​	WHERE employee_id>100;
-​	
-​	#方式二:
-​	ALTER VIEW test_v7
-​	AS
-​	SELECT employee_id FROM employees;
-​	
-​	SELECT * FROM test_v7;
-###视图的删除
-​	DROP VIEW test_v1,test_v2,test_v3;
-###视图结构的查看	
-​	DESC test_v7;
-​	SHOW CREATE VIEW test_v7;
+```
 
-##存储过程
+
+视图逻辑的更新
+
+```
+#方式一：
+CREATE OR REPLACE VIEW test_v7
+AS
+SELECT last_name FROM employees
+WHERE employee_id>100;
+	
+#方式二:
+ALTER VIEW test_v7
+AS
+SELECT employee_id FROM employees;
+```
+
+## 6. 变量
+
+系统变量：
+	全局变量：作用域：针对于所有会话（连接）有效，但不能跨重启
+	会话变量：作用域：针对于当前会话（连接）有效
+
+自定义变量：
+	用户变量
+	局部变量
+
+### 6.1 系统变量
+
+说明：变量由系统定义，不是用户定义，属于服务器层面
+注意：全局变量需要添加global关键字，会话变量需要添加session关键字，如果不写，默认会话级别
+
+使用步骤：
+ 1、查看所有系统变量
+	 show global|【session】variables;
+
+ 2、查看满足条件的部分系统变量
+ 	show global|【session】 variables like '%char%';
+
+3、查看指定的系统变量的值
+	 select @@global|【session】系统变量名;
+
+4、为某个系统变量赋值
+	方式一：
+		set global|【session】系统变量名=值;
+	方式二：
+		set @@global|【session】系统变量名=值;
+
+### 6.2 自定义变量
+
+说明：变量由用户自定义，而不是系统提供的
+
+**用户变量**
+
+作用域：针对于当前会话（连接）有效，作用域同于会话变量
+
+```
+#赋值操作符：=或:=
+#①声明并初始化
+SET @变量名=值;
+SET @变量名:=值;
+SELECT @变量名:=值;
+
+#②赋值（更新变量的值）
+#方式一：
+	SET @变量名=值;
+	SET @变量名:=值;
+	SELECT @变量名:=值;
+#方式二：
+	SELECT 字段 INTO @变量名
+	FROM 表;
+#③使用（查看变量的值）
+SELECT @变量名;
+```
+
+**局部变量**
+
+作用域：仅仅在定义它的begin end块中有效
+          应用在 begin end中的第一句话
+
+```
+#①声明
+DECLARE 变量名 类型;
+DECLARE 变量名 类型 【DEFAULT 值】;
+
+
+#②赋值（更新变量的值）
+
+#方式一：
+	SET 局部变量名=值;
+	SET 局部变量名:=值;
+	SELECT 局部变量名:=值;
+#方式二：
+	SELECT 字段 INTO 具备变量名
+	FROM 表;
+#③使用（查看变量的值）
+SELECT 局部变量名;
+```
+
+**局部变量与用户变量的对比**
+
+```
+		  作用域			     定义位置		         语法
+用户变量	当前会话		     会话的任何地方		加@符号，不用指定类型
+局部变量	定义它的BEGIN END中 	BEGIN END的第一句话	一般不用加@,需要指定类型
+```
+
+## 7. 存储过程
+
+存储过程和函数：类似于java中的方法
+好处：
+	1、提高代码的重用性
+	2、简化操作
 
 含义：一组经过预先编译的sql语句的集合
+
 好处：
 
 	1、提高了sql语句的重用性，减少了开发程序员的压力
 	2、提高了效率
-	3、减少了传输次数
+	3、减少了编译次数并且减少了和数据库服务器的连接次数，提高了效率
 
-分类：
+### 创建
 
-	1、无返回无参
-	2、仅仅带in类型，无返回有参
-	3、仅仅带out类型，有返回无参
-	4、既带in又带out，有返回有参
-	5、带inout，有返回有参
-	注意：in、out、inout都可以在一个存储过程中带多个
-###创建存储过程
-语法：
-
-	create procedure 存储过程名(in|out|inout 参数名  参数类型,...)
-	begin
-		存储过程体
-	
-	end
-
-类似于方法：
-
-	修饰符 返回类型 方法名(参数类型 参数名,...){
-	
-		方法体;
-	}
-
-注意
-
-	1、需要设置新的结束标记
-	delimiter 新的结束标记
-	示例：
-	delimiter $
-	
-	CREATE PROCEDURE 存储过程名(IN|OUT|INOUT 参数名  参数类型,...)
+	CREATE PROCEDURE 存储过程名(参数列表)
 	BEGIN
-		sql语句1;
-		sql语句2;
-	
-	END $
-	
-	2、存储过程体中可以有多条sql语句，如果仅仅一条sql语句，则可以省略begin end
-	
-	3、参数前面的符号的意思
-	in:该参数只能作为输入 （该参数不能做返回值）
-	out：该参数只能作为输出（该参数只能做返回值）
-	inout：既能做输入又能做输出
+	存储过程体（一组合法的SQL语句）
+	END
+**注意**：
 
+```
+1、参数列表包含三部分
+	参数模式  参数名  参数类型
+	举例： in stuname varchar(20)
 
-#调用存储过程
-	call 存储过程名(实参列表)
-##函数
+   参数模式：
+		in：该参数可以作为输入，也就是该参数需要调用方传入值
+		out：该参数可以作为输出，也就是该参数可以作为返回值
+		inout：该参数既可以作为输入又可以作为输出，也就是该参数既需要传入值，又可以返回值
 
+2、如果存储过程体仅仅只有一句话，begin end可以省略
+   存储过程体中的每条sql语句的结尾要求必须加分号。
+   存储过程的结尾可以使用 delimiter 重新设置
+ 语法：
+  delimiter 结束标记
+  案例：
+  delimiter $
+```
+
+### 调用语法
+
+  见【doc/存储过程.sql】
+
+### 删除存储过程
+#语法：drop procedure 存储过程名
+DROP PROCEDURE p1;
+DROP PROCEDURE p2,p3;#×
+
+### 查看存储过程的信息
+DESC myp2;×
+SHOW CREATE PROCEDURE  myp2;
+
+## 8. 函数
 
 ###创建函数
 
@@ -997,10 +1107,6 @@ blob(较大的二进制)
 
 ###调用函数
 	SELECT 函数名（实参列表）
-
-
-
-
 
 ###函数和存储过程的区别
 
