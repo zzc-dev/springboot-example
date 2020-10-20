@@ -1094,118 +1094,45 @@ SHOW CREATE PROCEDURE  myp2;
 
 ## 8. 函数
 
-###创建函数
+**创建函数**
 
-学过的函数：LENGTH、SUBSTR、CONCAT等
-语法：
-
+	学过的函数：LENGTH、SUBSTR、CONCAT等
 	CREATE FUNCTION 函数名(参数名 参数类型,...) RETURNS 返回类型
 	BEGIN
 		函数体
-	
 	END
+	
+	注意：
+	1.参数列表 包含两部分：
+	   参数名 参数类型
+	
+	2.函数体：肯定会有return语句，如果没有会报错
+	  如果return语句没有放在函数体的最后也不报错，但不建议
+	  return 值;
+	  
+	3.函数体中仅有一句话，则可以省略begin end
+	
+	4.使用 delimiter语句设置结束标记
 
-###调用函数
+**调用函数**
 	SELECT 函数名（实参列表）
 
-###函数和存储过程的区别
+**函数和存储过程的区别**
 
-			关键字		调用语法	返回值			应用场景
-	函数		FUNCTION	SELECT 函数()	只能是一个		一般用于查询结果为一个值并返回时，当有返回值而且仅仅一个
-	存储过程	PROCEDURE	CALL 存储过程()	可以有0个或多个		一般用于更新
+			  关键字		 调用语法	       返回值			应用场景
+	函数		 FUNCTION	 SELECT 函数()    只能是一个		一般用于查询结果为一个值并返回时，当有返回值而且仅仅一个
+	存储过程	PROCEDURE	CALL 存储过程()	 可以有0个或多个	一般用于更新
 
+## 9. 流程控制结构
 
-##流程控制结构
+顺序、分支、循环
 
-###系统变量
-一、全局变量
-
-作用域：针对于所有会话（连接）有效，但不能跨重启
-
-	查看所有全局变量
-	SHOW GLOBAL VARIABLES;
-	查看满足条件的部分系统变量
-	SHOW GLOBAL VARIABLES LIKE '%char%';
-	查看指定的系统变量的值
-	SELECT @@global.autocommit;
-	为某个系统变量赋值
-	SET @@global.autocommit=0;
-	SET GLOBAL autocommit=0;
-
-二、会话变量
-
-作用域：针对于当前会话（连接）有效
-
-	查看所有会话变量
-	SHOW SESSION VARIABLES;
-	查看满足条件的部分会话变量
-	SHOW SESSION VARIABLES LIKE '%char%';
-	查看指定的会话变量的值
-	SELECT @@autocommit;
-	SELECT @@session.tx_isolation;
-	为某个会话变量赋值
-	SET @@session.tx_isolation='read-uncommitted';
-	SET SESSION tx_isolation='read-committed';
-
-###自定义变量
-一、用户变量
-
-声明并初始化：
-
-	SET @变量名=值;
-	SET @变量名:=值;
-	SELECT @变量名:=值;
-赋值：
-
-	方式一：一般用于赋简单的值
-	SET 变量名=值;
-	SET 变量名:=值;
-	SELECT 变量名:=值;
-
-
-	方式二：一般用于赋表 中的字段值
-	SELECT 字段名或表达式 INTO 变量
-	FROM 表;
-
-使用：
-
-	select @变量名;
-
-二、局部变量
-
-声明：
-
-	declare 变量名 类型 【default 值】;
-赋值：
-
-	方式一：一般用于赋简单的值
-	SET 变量名=值;
-	SET 变量名:=值;
-	SELECT 变量名:=值;
-
-
-	方式二：一般用于赋表 中的字段值
-	SELECT 字段名或表达式 INTO 变量
-	FROM 表;
-
-使用：
-
-	select 变量名
-
-
-
-二者的区别：
-
-			作用域			定义位置		语法
-用户变量	当前会话		会话的任何地方		加@符号，不用指定类型
-局部变量	定义它的BEGIN END中 	BEGIN END的第一句话	一般不用加@,需要指定类型
-
-###分支
-一、if函数
+### 分支
+1、if函数
 	语法：if(条件，值1，值2)
 	特点：可以用在任何位置
 
-二、case语句
+2、case语句
 
 语法：
 
@@ -1229,7 +1156,7 @@ SHOW CREATE PROCEDURE  myp2;
 特点：
 	可以用在任何位置
 
-三、if elseif语句
+3、if elseif语句
 
 语法：
 
@@ -1240,31 +1167,47 @@ SHOW CREATE PROCEDURE  myp2;
 	end if;
 
 特点：
-	只能用在begin end中！！！！！！！！！！！！！！！
-
+	**只能用在begin end中！！！！！！！！！！！！！！！**
 
 三者比较：
-			应用场合
-	if函数		简单双分支
+			          应用场合
+	if函数		 简单双分支
 	case结构	等值判断 的多分支
-	if结构		区间判断 的多分支
+	if结构		 区间判断 的多分支
 
+### 循环
 
-###循环
+分类：
+    while、loop、repeat
+
+循环控制：
+	iterate类似于 continue，继续，结束本次循环，继续下一次
+	leave 类似于  break，跳出，结束当前所在的循环
 
 语法：
 
 
-	【标签：】WHILE 循环条件  DO
-		循环体
-	END WHILE 【标签】;
+	1.while
+	【标签:】while 循环条件 do
+		循环体;
+	end while【 标签】;
+	
+	2.loop
+	【标签:】loop
+		循环体;
+	end loop 【标签】;
+	可以用来模拟简单的死循环
+	
+	3.repeat
+	【标签：】repeat
+		循环体;
+	until 结束循环的条件
+	end repeat 【标签】;
 
 特点：
 
 	只能放在BEGIN END里面
-	
 	如果要搭配leave跳转语句，需要使用标签，否则可以不用标签
-	
 	leave类似于java中的break语句，跳出所在循环！！！
 
 
