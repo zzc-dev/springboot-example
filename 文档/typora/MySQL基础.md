@@ -1210,7 +1210,13 @@ SHOW CREATE PROCEDURE  myp2;
 	如果要搭配leave跳转语句，需要使用标签，否则可以不用标签
 	leave类似于java中的break语句，跳出所在循环！！！
 
+# 考点
 
+1. having的作用，having、group by、where的执行顺序
+
+   having字句可以让我们筛选成组后的各种数据，where字句在聚合前先筛选记录，也就是说作用在group by和having字句前。而 having子句在聚合后对组记录进行筛选。我的理解就是真实表中没有此数据，这些数据是通过一些函数生存。
+
+   where -> group by -> having
 
 
 
