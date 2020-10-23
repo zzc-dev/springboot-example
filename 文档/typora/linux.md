@@ -434,6 +434,27 @@ tar        # 打包目录,压缩后的文件格式.tar.gz
 **压缩：tar -zcvf  XXX.tar.gz   n1.txt    n2.txt**
 **解压：tar -zxvf  XXX.tar.gz**
 
+## 8. 防火墙
+
+```
+查看是否打开：（not running是未打开，running是打开）
+firewall-cmd --state
+
+如果是running，则证明是打开的，则关闭防火墙：（开启命令为：service firewalld start）
+service firewalld stop
+
+如果想关闭防火墙的开机自启：（前提要先关闭防火墙）
+systemctl disable firewalld
+
+如果想开启防火墙的开机自启：
+systemctl enable firewalld
+
+开放某个端口（这里开放了3306端口）：
+# firewall-cmd --zone=public --add-port=3306/tcp –permanent
+```
+
+
+
 # 八、Linux文件与目录结构
 
 ## 1. 树状目录结构
@@ -467,7 +488,7 @@ Linux系统是一种典型的多用户系统，不同的用户处于不同的地
 
 在Linux中我们可以使用ll或者ls –l命令来显示一个文件的属性以及文件所属的用户和组
 
-![](E:\workspace\git\springboot-example\文档\typora\images\image-20201022191944633.png)
+![](D:\myself\springboot-example\文档\typora\images\image-20201022191944633.png)
 
 ```
 从左到右的10个字符表示：
@@ -514,7 +535,7 @@ chmod 777 文件/目录  777：rwx rwx rwx
 
 查看创建文件、目录的默认权限，缺省创建的文件不能授予可执行权限x
 
-![image-20201022192658847](E:\workspace\git\springboot-example\文档\typora\images\image-20201022192658847.png)
+![image-20201022192658847](D:\myself\springboot-example\文档\typora\images\image-20201022192658847.png)
 
 默认规则：
  文件是666 减去 022等于644，
@@ -524,3 +545,27 @@ chmod 777 文件/目录  777：rwx rwx rwx
 
  目录是777 减去 022等于755，
 
+# 九、安装jdk、tomcat
+
+## 1. jdk安装
+
+解压后
+
+**vim /etc/profile  ->  source /etc/profile -> java -version**
+
+```
+# 新增 start
+export JAVA_HOME=/usr/local/java/jdk1.8
+export CLASSPATH=.:$JAVA_HOME/jre/lib/rt.jar:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+export PATH=$PATH:$JAVA_HOME/bin
+# 新增 end
+
+unset i
+unset -f pathmunge
+```
+
+## 2. tomcat安装
+
+解压后，直接进入tomcat的bin目录启动startup.sh
+
+本机想访问必须要关闭防火墙
