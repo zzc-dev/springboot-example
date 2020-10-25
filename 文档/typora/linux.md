@@ -545,7 +545,7 @@ chmod 777 文件/目录  777：rwx rwx rwx
 
  目录是777 减去 022等于755，
 
-# 九、安装jdk、tomcat
+# 九、安装jdk、tomcat、mysql
 
 ## 1. jdk安装
 
@@ -569,3 +569,117 @@ unset -f pathmunge
 解压后，直接进入tomcat的bin目录启动startup.sh
 
 本机想访问必须要关闭防火墙
+
+## 3.mysql安装
+
+<strong style="color:red">本机是在centos7上安装mysql5.5版本</strong>
+
+**安装前准备**
+
+```
+1.下载好mysql service和client两个rpm包
+2.检查当前系统是否安装过mysql,如果安装则卸载
+	rpm -qa|grep mysql
+    rpm -e --nodeps 上面查到的包
+3.卸载mariadb
+	rpm -qa|grep mariadb
+	rpm -e --nodeps 上面查到的包
+4.检查/tmp文件夹权限
+	由于mysql安装过程中，会通过mysql用户在/tmp目录下新建tmp_db文件，所以请给/tmp较大的权限
+	执行 ：chmod -R 777 /tmp 
+5.重启
+	reboot
+```
+
+**安装**
+
+```
+rpm -ivh MySQL-server.rpm
+rpm -ivh MySQL-client.rpm
+```
+
+**查看安装版本**
+
+```
+mysqladmin --version
+```
+
+**启动/停止mysql服务**
+
+```
+service start/stop mysql
+```
+
+**首次安装设置密码及密码重置**
+
+```
+初始化密码 /usr/bin/mysqladmin -u root  password '123456'
+
+修改密码
+方法1： 用SET PASSWORD命令
+首先登录MySQL。
+格式：mysql> set password for 用户名@localhost = password('新密码');
+例子：mysql> set password for root@localhost = password('123');
+
+方法2：用mysqladmin
+格式：mysqladmin -u用户名 -p旧密码 password 新密码
+例子：mysqladmin -uroot -p123456 password 123
+
+方法3：用UPDATE直接编辑user表
+首先登录MySQL。
+mysql> use mysql;
+mysql> update user set password=password('123') where user='root' and host='localhost';
+mysql> flush privileges;
+```
+
+**设置开机自启  chkconfig --level 5 mysql on**
+
+### 设置字符集
+
+```
+#拷贝配置文件 mysql 优先选中 /etc/ 下的配置文件
+cp /usr/share/mysql/my-huge.cnf  /etc/my.cnf
+
+#修改my.cnf:
+[client]
+default-character-set=utf8
+[mysqld]
+character_set_server=utf8
+character_set_client=utf8
+collation-server=utf8_general_ci
+[mysql]
+default-character-set=utf8
+
+#重新启动mysql
+  service start/stop mysql可能报错，可以使用systemctl start/stop mysql
+
+#原有的数据如果是用非'utf8'编码的话，数据本身不会发生改变
+
+# 已生成的库表字符集如何变更
+   修改数据库的字符集
+   mysql> alter database mytest character set 'utf8';
+   修改数据表的字符集
+   mysql> alter table user convert to  character set 'utf8';
+
+```
+
+**mysql相关安装路径**
+
+在linux下查看安装目录 ps -ef|grep mysql
+
+```
+参数	         路径	                              解释	                     备注
+--basedir 	  /usr/bin 	                        相关命令目录	             mysqladmin mysqldump等命令
+--datadir	  /var/lib/mysql/ 	                mysql数据库文件的存放路径	 
+--plugin-dir  /usr/lib64/mysql/plugin	        mysql插件存放路径	
+--log-error	  /var/lib/mysql/jack.atguigu.err	mysql错误日志路径	
+--pid-file	  /var/lib/mysql/jack.atguigu.pid	进程pid文件	
+--socket	  /var/lib/mysql/mysql.sock	        本地连接时用的unix套接字文件	
+              /usr/share/mysql 	                配置文件目录	             mysql脚本及配置文件
+              /etc/init.d/mysql	                服务启停相关脚本	
+```
+
+
+
+
+
