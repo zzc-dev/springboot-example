@@ -176,7 +176,7 @@ select user, host from user;  # 报次错误，不影响Duplicate entry '%-root'
 flush privileges;
 ```
 
-# 四、索引优化分析
+# 四、索引
 
 ## 1. SQL执行顺序
 
@@ -261,7 +261,188 @@ B+TREE:Innodb 所使用的索引
   ALTER TABLE tbl_name ADD FULLTEXT index_name (column_list):该语句指定了索引为 FULLTEXT ，用于全文索引。
   ```
 
+
+### 2.6 索引的使用场景
+
+下列情况推荐创建索引：
+
+	1. 主键自动创建唯一索引
+ 	2. 频繁作为查询条件的字段应该创建索引(where 后面的语句)
+ 	3. 查询中与其它表关联的字段，外键关系建立索引
+     A 表关联 B 表：A join B  。  on 后面的连接条件 既 A 表查询 B 表的条件。所以 B 表被关联的字段建立索引能大大提高查询效率
+     因为在 join 中，join 左边的表会用每一个字段去遍历 B 表的所有的关联数据，相当于一个查询操作
+ 	4. 查询中排序的字段，排序字段若通过索引去访问将大大提高排序速度
+ 	5. 查询中统计或者分组字段
+
+下列情况不推荐创建索引：
+
+	1. 表记录太少
+ 	2. 经常增删改的表
+ 	3. where条件用不到的字段
+ 	4. 数据重复且分布平均的表字段，因此应该只为最经常查询和最经常排序的数据列建立索引。
+     注意，如果某个数据列包含许多重复的内容，为它建立索引就没有太大的实际效果。
+
+## 3.MySQL常见性能瓶颈
+
+1. CPU
+   SQL中对大量数据进行比较（最大压力在于比较）、关联、排序、分组
+2. IO
+   实例内存满足不了缓存数据或者排序等需要，导致产生大量物理IO；
+   查询执行效率低，扫描过多数据行
+3. 锁
+   不适宜的锁设置，导致线程阻塞，性能下降；
+   死锁，线程之前交叉调用资源，导致死锁，线程卡住
+4. 服务器硬件性能瓶颈
+   top、free、iostat和vmstat查看系统的性能状态
+
+# 五、 性能分析之Explain
+
+>使用Explain可以查看执行计划，可以模拟优化器执行SQL查询语句，从而知道mysql是如何处理sql语句的。
+>从而分析查询语句和表结构的性能瓶颈
+
+执行计划包含的信息
+
+![image-20201027105500918](D:\myself\springboot-example\文档\typora\images\mysql07.png)
+
+## 1. 字段解释
+
+### 1.1 id
+
+​       id 一致：从上到下顺序执行
+
+​	   id不一致：id越大，优先级越高，越先执行
+
+### 1.2 select_type
+
+查询的类型，主要是用于区别普通查询、联合查询、子查询等的复杂查询
+
+```
+1.simple 简单的查询
+	explain select * from tab;
+	
+2.primary 查询中包含子查询，最外层被查询被标记为primary
+	explain select * from a where a.id in (selct id from b);   a表为primary b为dependent subquery
+	
+3.derived 在from中使用子查询生成的临时表标记为derived
+	explain select * from (select * from user) a; 
+
+4.subquery 在SELECT或WHERE列表中包含了子查询，子查询基于单值  用 = 
+	explain select * from plate where id = (select id from plate where id =1)
+
+5.dependent subquery 在SELECT或WHERE列表中包含了子查询,子查询基于多值  用 in
+	explain select * from plate where id in (select id from plate where id =1)
+
+6.uncacheable subquery 无法被缓存的子查询
+	explain select * from plate where id = (select id from plate where id = @@sort_buffer_size)
+	@@ 表示查的环境参数 。没办法缓存
+
+7.union  所有union的右表，如例子中的a表
+8.union result  从union获取整个结果的select
+  explain
+	select * from plate where id =1
+	union
+	select * from plate as a where id >1
+```
+
+### 1.3 table
+
+### 1.4 type
+
+访问类型排列 性能最好：system > const > eq_ref > ref > range > index > all 
+
+一般来说，查询type至少达到range，最多达到ref
+
+```
+1.system 表中只有一条记录
+  select * from plate; # plate 只有一条记录
+
+2.const 唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配。常见于主键或唯一索引扫描
+  select * from plate where id=1
+
+3.eq_ref 与const的区别，eq_const用于联表查找
+  explain select * from plate a,plate b where a.id = b.id;  # b表的type为eq_ref
+
+4.ref 非唯一性索引扫描，返回匹配某个单独值的所有行
+  explain select * from staff where deptId = 1; #deptId为普通索引
+
+5.range 只检索给定范围的行,使用一个唯一索引来选择行
+  explain select * from staff where staffId > 1; #staffId为主键或唯一索引
+
+6.index 全索引扫描，只遍历索引树
+  explain select index_name from table;
+
+7.all 全表扫描
+```
+
+### 1.5 possible key 与key
+
+  possible理论上使用的索引，但不一定被实际查询使用
+  key实际使用的索引
+
+> 使用覆盖索引： 
+> possible为null，而key有值，并且extra为Using Index
+>
+> 查询的字段和索引重叠：
+> eg：explain select staffId from staff ; # staffId为索引
+
+### 1.6 key_len
+
+表示索引中使用的字节数，可通过该列计算查询中使用的索引的长度。
+
+key_len的计算和用处？
+
+![image-20201027165244983](D:\myself\springboot-example\文档\typora\images\mysql08.png)
+
+### 1.7 ref
+
+显示索引的哪一列被使用了，如果可能的话，是一个常数。哪些列或常量被用于查找索引列上的值
+
+```
+explain select * from plate a,plate b where a.id = b.id;
+
+table=b
+key=primary
+ref=test.a.id  
+表示b表的主键id索引使用的是test数据库中a表的字段id
+```
+
+### 1.8 rows
+
+每张表有多少行被优化器查询
+rows列显示MySQL认为它执行查询时必须检查的行数。越少越好
+
+### 1.9 extra
+
+包含不适合在其他列中显示但十分重要的额外信息
+
+```
+1.Using filesore 
+  mysql会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取。
+  MySQL中无法利用索引完成的排序操作称为“文件排序”
+
+2.Using tempporary
+  使了用临时表保存中间结果,MySQL在对查询结果排序时使用临时表。常见于排序 order by 和分组查询 group by。
   
+3.Using Index和Using where
+  表示相应的select操作中使用了覆盖索引(Covering Index)，避免访问了表的数据行，效率不错！
+  如果同时出现using where，表明索引被用来执行索引键值的查找;
+  如果没有同时出现using where，表明索引只是用来读取数据而非利用索引执行查找。
+
+4.Using join buffer
+  使用连接缓存
+ 
+5.impossible where
+  where的条件总是false
+ 
+6.select tables optimized away
+  Innodb没有该机制
+```
+
+
+
+# mysql锁机制
+
+
 
 # 记忆
 
