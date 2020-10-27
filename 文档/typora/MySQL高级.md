@@ -416,11 +416,11 @@ rows列显示MySQL认为它执行查询时必须检查的行数。越少越好
 包含不适合在其他列中显示但十分重要的额外信息
 
 ```
-1.Using filesore 
+1.Using filesort
   mysql会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取。
   MySQL中无法利用索引完成的排序操作称为“文件排序”
 
-2.Using tempporary
+2.Using temporary
   使了用临时表保存中间结果,MySQL在对查询结果排序时使用临时表。常见于排序 order by 和分组查询 group by。
   
 3.Using Index和Using where
@@ -436,7 +436,59 @@ rows列显示MySQL认为它执行查询时必须检查的行数。越少越好
  
 6.select tables optimized away
   Innodb没有该机制
+  
+7.Using index condition; （5.7新增的）
 ```
+
+5.7 后新增的
+
+1.10 partitions 
+
+1.11 filtered
+
+## 2. 性能优化
+
+### 2.1 复合索引顺序问题
+
+```
+alter table article add index idx_article_ccv(category_id, comments, views);
+explain select * from article where category_id = 1 and comments > 1 order by  views limit 1;
+建立了ccv符合索引，所以索引是以ccv顺序排序的，
+category_id=1 ccv索引是以cv方式排序，后面order by views,与索引顺序不符，所以需要重新排序，etra为using filesort
+```
+
+### 2.2  关联索引优化
+
+```
+explain select * from class left join book on class.card=book.card;
+```
+
+**left join 加右表性能高，right join 加左表性能高**
+
+**驱动表无论如何都会被全表扫描。所以扫描次数越少越好**
+
+1.被驱动表  join 后的表为被驱动表  (需要被查询)
+
+2.left join 尽量选择小表作为驱动表，小表驱动大表
+
+3.inner join mysql 自动选择。小表作为驱动表。
+
+4.尽量不在被驱动表中使用子查询，有可能使用不到索引
+
+### 2.3 索引失效之最佳左前缀法则
+
+​	<strong style="color:red">查询从索引的最左前列开始并且不跳过索引中间的列</strong>
+
+```
+alter table1 add index idxABC(A,B,C);
+
+explain select * from table1 where A = 1 and C=1; #可以使用A索引，C失效，违背最佳左前缀法则
+explain select * from table1 where B = 1 and C=1; #不能使用索引，违背最佳左前缀法则
+```
+
+
+
+
 
 
 
