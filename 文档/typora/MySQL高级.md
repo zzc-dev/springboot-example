@@ -240,7 +240,7 @@ B+TREE:Innodb 所使用的索引
 
 - **唯一索引**：索引列的值必须唯一，但允许有空值
 
-- **符合索引**：即一个索引包含多个列在数据库操作期间，
+- 复合索引**：即一个索引包含多个列在数据库操作期间，
   复合索引比单值索引所需要的开销更小(对于相同的多个列建索引)
   当表的行数远大于索引列的数目时可以使用复合索引
 
@@ -475,9 +475,9 @@ explain select * from class left join book on class.card=book.card;
 
 4.尽量不在被驱动表中使用子查询，有可能使用不到索引
 
-### 2.3 索引失效之最佳左前缀法则
+### 2.3 索引失效
 
-​	<strong style="color:red">查询从索引的最左前列开始并且不跳过索引中间的列</strong>
+​	1. <strong style="color:red">最佳左前缀法则：查询从索引的最左前列开始并且不跳过索引中间的列</strong>
 
 ```
 alter table1 add index idxABC(A,B,C);
@@ -486,15 +486,284 @@ explain select * from table1 where A = 1 and C=1; #可以使用A索引，C失效
 explain select * from table1 where B = 1 and C=1; #不能使用索引，违背最佳左前缀法则
 ```
 
+2. 不要在索引列上做任何操作（计算、函数、手动或自动类型转换），会使索引失效从而转向全表扫描
+
+3. 存储引擎不能使用索引中<strong style="color:red">范围条件右边</strong>的列
+
+   ```
+   alter table1 add index idxABC(A,B,C);
+   
+   explain select * from table1 where A = 1 and B>1 and C=1; #可以使用AB索引，C失效，type=range
+   ```
+
+4. 尽量使用覆盖索引，但使用覆盖索引后<strong style="color:red">范围及范围后</strong>也全部失效
+
+   ```
+   alter table1 add index idxABC(A,B,C);
+   
+   # 可以使用AB索引，C失效，type=range
+   explain select * from table1 where A = 1 and B>1 and C=1;
+   
+   #可以使用A索引，BC失效，type=ref  extra=using index
+   explain select A,B,C from table1 where A = 1 and B>1 and C=1; 
+   ```
+
+5. mysql使用“!=”、“<>”、is null、is not null 会使索引失效导致全表扫描
+
+6. like 左边使索引失效，可以使用覆盖索引解决
+
+   ```
+   alter table1 add index idxA(A);
+   
+   # like左边有%，索引失效
+   explain select * from table1 where A like '%s%';
+   explain select * from table1 where A like '%s';
+   
+   # type=index，extra=using index   索引不失效
+   explain select A from table1 where A like '%s';
+   ```
+
+   6.1 **复合索引下like, ‘<’ 范围的对比**
+
+   like 常量开头就会使用到索引并且不会影响复合索引后面的使用
+
+   | alter table1 add index idxABC(A,B,C);     | A    | B    | C    |
+   | :---------------------------------------- | ---- | ---- | ---- |
+   | where A='s' and B like '%s' and C = 's'   | √    | ×    | ×    |
+   | where A='s' and B like 's%' and C = 's'   | √    | √    | √    |
+   | where A='s' and B like 's%s%' and C = 's' | √    | √    | √    |
+   | where A='s' and B > 's' and C = 's'       | √    | √    | ×    |
+
+   
+
+7. 字符串不加单引号会使索引失效，自动类型转换了
+
+8. or也会使索引失效，与like一样，可以使用覆盖索引解决
+
+9. order by
+
+   ```
+   alter table1 add index idxABC(A,B,C);
+   # 使用到了A用于查找，B用于排序，C失效
+   explain select * from table1 where A = 1 and C=1 order by B;
+   ```
+
+10. group by 先排序后分组，如果出现系统内排序，将会产生临时表，严重影响性能
+
+    ```
+    alter table1 add index idxABC(A,B,C);
+    # type=ref,使用了聚合索引中的A，extra=Using temporary; Using filesort
+    explain select * from table1 where A = 1 group by C;
+    ```
+
+### 2.4 【2.3总结】
+
+​                          **全值匹配我最爱，最左前缀要遵守。**
+​                          **带头大哥不能死，中间兄弟不能断。**
+​                          **索引列上少计算，范围之后全失效。**
+​                          **Like百分写最右，覆盖索引不写*。**
+​                          **不等空值还有or，索引失效要少用。**
+
+# 六、查询优化
+
+​	1.慢查询的开启并捕获
+​    2.explain+慢SQL分析
+​    3.show profiles查询SQL在服务器中的执行细节和生命周期情况
+​    4.SQL数据库服务器的参数调优
+
+## 1. in和exists的对比
+
+```
+select * from A where id in (select B.id from B)
+查询结果上等价于
+select * from A where exists (select 1 from B where B.id = A.id)
+```
+
+上面两条查询语句从结果上是一致的，但执行顺序不一样
+
+in是先开始子查询，也就是先B后A
+
+exists
+
+> 指定一个子查询，检测行的存在。遍历循环外表，然后看外表中的记录有没有和内表的数据一样的。匹配上就将结果放入结果集中
+
+根据exist的定义，执行顺序是A -> B
+
+总结：
+
+​	根据小表驱动大表的原则，使用in：内表数据量<外表，exists相反
+
+## 2. order by
+
+MySQL支持二种方式的排序，FileSort和Index，Index效率高.
+它指MySQL扫描索引本身完成排序。[FileSort](#FileSort)方式效率较低
+
+## 3. group by
+
+- group by实质是先排序后进行分组，遵照索引建的最佳左前缀 
+- 当无法使用索引列，增大max_length_for_sort_data参数的设置+增大sort_buffer_size参数的设置
+- where高于having，能写在where限定的条件就不要去having限定了。
+
+## 4. distinct
+
+```
+例子：select kcdz form t_mall_sku where id in( 3,4,5,6,8 )  将产生重复数据，
+     select distinct kcdz form t_mall_sku where id in( 3,4,5,6,8 )   使用 distinct 关键字去重消耗性能
+优化： select  kcdz form t_mall_sku where id in( 3,4,5,6,8 )  group by kcdz 能够利用到索引
+```
 
 
 
+## FileSort
+
+如果不在索引列上，filesort有两种算法：
+mysql就要启动双路排序和单路排序
+
+>双路排序：MySQL 4.1从磁盘取排序字段，在buffer进行排序，再从磁盘取其他字段。
+>                   两次磁盘扫描，IO耗时
+>
+>单路排序：从磁盘查询所有的列，在buffer中排序输出
+>                   一次IO，但数据一次性读取在内存中，占据更多空间
+>           可能出现问题：
+>                   一次读取的数据超出sort_buffer的容量，导致每次只能取sort_buffer容量大小的数据，进行排序（创建tmp文件，多路合并），排完再取取 
+>                  sort_buffer容量大小，再排……从而多次I/O。
+>          优化策略：
+>				1.增大sort_buffer_size参数的设置
+>                2.增大max_length_for_sort_data参数的设置
+>                3.去掉select 后面不需要的字段
+
+
+
+# 七、查询截取分析
+
+## 1. 慢查询日志
+
+>MySQL的慢查询日志是MySQL提供的一种日志记录，它用来记录在MySQL中响应时间超过阀值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中
+>
+>默认情况下，MySQL数据库没有开启慢查询日志
+>
+>如果不是调优需要的话，一般不建议启动该参数，因为开启慢查询日志会或多或少带来一定的性能影响。慢查询日志支持将日志记录写入文件
+
+### 1.1**相关命令**
+
+```
+#查看慢查询是否开启和日志存放位置
+SHOW VARIABLES LIKE '%slow_query_log%';
+
+#开启慢查询 mysql重启后失效
+set global slow_query_log=1
+
+#查看超时时间 
+SHOW VARIABLES LIKE 'long_query_time%';
+#要重新连接或新开一个会话才能看到修改值
+set global long_query_time=1
+
+#测试
+select sleep(11);
+
+#查看系统中有多少条慢查询日志
+show global status like '%Slow_queries%';
+
+【配置版】
+【mysqld】下配置：
+ slow_query_log=1;
+slow_query_log_file=/var/lib/mysql/atguigu-slow.log
+long_query_time=3;
+log_output=FILE
+```
+
+### 1.2 慢查询日志分析工具mysqldumpslow
+
+![image-20201028190930672](D:\myself\springboot-example\文档\typora\images\mysql09.png)
+
+常用命令：
+
+```
+得到返回记录集最多的10个SQL
+mysqldumpslow -s r -t 10 /var/lib/mysql/atguigu-slow.log
+ 
+得到访问次数最多的10个SQL
+mysqldumpslow -s c -t 10 /var/lib/mysql/atguigu-slow.log
+ 
+得到按照时间排序的前10条里面含有左连接的查询语句
+mysqldumpslow -s t -t 10 -g "left join" /var/lib/mysql/atguigu-slow.log
+ 
+另外建议在使用这些命令时结合 | 和more 使用 ，否则有可能出现爆屏情况
+mysqldumpslow -s r -t 10 /var/lib/mysql/atguigu-slow.log | more
+```
+
+## 2. show profile
+
+> 是mysql提供可以用来分析当前会话中语句执行的资源消耗情况。可以用于SQL的调优的测量
+>
+> 默认情况下，参数处于关闭状态，并保存最近15次的运行结果
+
+### **命令**
+
+```
+Show  variables like 'profiling'; # 查看是否开启
+set profiling=1; # 开启
+```
+
+```
+show profiles; #查看查询结果
+```
+
+![image-20201028195554900](D:\myself\springboot-example\文档\typora\images\mysql10.png)
+
+```
+show profile cpu,block io for query  n #诊断SQL，n为上一步前面的问题SQL数字号码;
+
+相关参数:  
+ | ALL                        --显示所有的开销信息  
+ | BLOCK IO                --显示块IO相关开销  
+ | CONTEXT SWITCHES --上下文切换相关开销  
+ | CPU              --显示CPU相关开销信息  
+ | IPC              --显示发送和接收相关开销信息  
+ | MEMORY           --显示内存相关开销信息  
+ | PAGE FAULTS      --显示页面错误相关开销信息  
+ | SOURCE           --显示和Source_function，Source_file，Source_line相关的开销信息  
+ | SWAPS            --显示交换次数相关开销的信息
+
+```
+
+![image-20201028195806542](D:\myself\springboot-example\文档\typora\images\mysql11.png)
+
+### status如下状态需要注意
+
+            1. converting HEAP to MyISAM 查询结果太大，内存都不够用了往磁盘上搬了。
+               2. Creating tmp table 创建临时表
+               3. Copying to tmp table on disk 把内存中临时表复制到磁盘，危险！！
+               4. locked
+
+## 3.全局日志查询
+
+<strong style="color:red">尽量不要在生产环境开启这个功能。</strong>
+
+```
+配置启用：
+	在mysql的my.cnf中，设置如下：
+	#开启
+	general_log=1   
+	# 记录日志文件的路径
+	general_log_file=/path/logfile
+	#输出格式
+	log_output=FILE
+
+编码启动：
+	set global general_log=1;
+ 	#全局日志可以存放到日志文件中，也可以存放到Mysql系统表中。存放到日志中性能更好一些，存储到表中
+	set global log_output='TABLE';
+ 
+ 	此后 ，你所编写的sql语句，将会记录到mysql库里的general_log表，可以用下面的命令查看
+ 	select * from mysql.general_log;
+```
 
 
 
 # mysql锁机制
 
-
+回表
 
 # 记忆
 
