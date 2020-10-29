@@ -761,21 +761,296 @@ show profile cpu,block io for query  n #诊断SQL，n为上一步前面的问题
 
 
 
-# mysql锁机制
+# 八、mysql锁机制
 
-回表
+>  锁是计算机协调多个进程或线程并发访问某一资源的机制
+
+## 1.分类
+
+按对数据的操作类型分：
+		读锁（共享锁）：针对同一份数据，多个读操作可以同时进行不会互相影响
+	    写锁（排他锁）：当前写操作没有完成前，会阻塞其他的读和写操作
+                    当使用lock锁表时，阻塞其他的读和写操作
+                    当使用for update或update时，只会阻塞写操作	
+
+对数据操作的粒度分：
+
+		 > 为了尽可能提高数据库的并发度，每次锁定的数据范围越小越好，理论上每次只锁定当前操作的数据的方案会得到最大的并发度，但是管理锁是很耗资源的事情（涉及获取，检查，释放锁等动作），因此数据库系统需要在高并发响应和系统性能两方面进行平衡，这样就产生了“锁粒度（Lock granularity）”的概念。
+
+​         表锁
+​	     行锁
+
+## 2. 表锁(偏读)
+
+偏向MyISAM存储引擎，开销小，加锁快；无死锁；锁定粒度大，发生锁冲突的概率最高,并发度最低。
+
+```
+# 查看表上加过的锁
+show open tables [from dbname];
+#添加锁
+lock tables tablename read/write [, tablename2 read/write ..];
+#释放锁
+unlock tables;
+```
+
+**读锁**
+
+​                                      session1             session2
+​                                        加读锁
+   查询该表                        Y                           Y
+   查询其他表                    N                          Y
+   更新改表                        N                         阻塞
+​                                         释放锁                 更新成功
+
+**写锁** 
+
+​                                      session1             session2                                    
+​                                        加写锁
+
+   查询该表                        Y                        阻塞
+   查询其他表                    N                          Y
+   更新改表                        Y                         阻塞
+                                         释放锁                 更新成功/查询成功
+
+   <strong style="color:red">读锁会阻塞写，但是不会堵塞读。而写锁则会把读和写都堵塞   </strong>                                                         
+
+## 3. 行锁（偏写）
+
+偏向InnoDB存储引擎，开销大，加锁慢；会出现死锁；锁定粒度最小，发生锁冲突的概率最低,并发度也最高。
+
+InnoDB与MyISAM的最大不同有两点：一是支持事务（TRANSACTION）；二是采用了行级锁           
+
+​                                        session1                                   session2                                    
+​                                set autocommit = 0                   set autocommit = 0
+
+​                                 更新改行但未提交                        查询到之前的数据（防止脏读）、更新阻塞                               
+​                                       commit                                   查询到之前的数据（防止不可重复读）、可以更新
+​                                                                                         commit;  查到session1更新的数据
+
+   <strong style="color:red">无索引行锁升级为表锁  </strong>    
+
+### 行锁分析
+
+```
+show status like 'innodb_row_lock%';# 分析系统上的行锁的争夺情况
+
+Innodb_row_lock_current_waits：当前正在等待锁定的数量；
+Innodb_row_lock_time：从系统启动到现在锁定总时间长度；
+Innodb_row_lock_time_avg：每次等待所花平均时间；
+Innodb_row_lock_time_max：从系统启动到现在等待最常的一次所花的时间；
+Innodb_row_lock_waits：系统启动后到现在总共等待的次数；
+对于这5个状态变量，比较重要的主要是
+  Innodb_row_lock_time_avg（等待平均时长），
+  Innodb_row_lock_waits（等待总次数）
+  Innodb_row_lock_time（等待总时长）这三项。
+
+#查询正在被锁阻塞的sql语句。
+SELECT * FROM information_schema.INNODB_TRX\G;
+```
+
+### 优化建议
+
+- 尽可能让所有数据检索都通过索引来完成，避免无索引行锁升级为表锁
+- 尽可能较少检索条件，避免间隙锁
+- 尽量控制事务大小，减少锁定资源量和时间长度
+- 锁住某行后，尽量不要去调别的行或表，赶紧处理被锁住的行然后释放掉锁。
+- 涉及相同表的事务，对于调用表的顺序尽量保持一致。
+- 在业务环境允许的情况下,尽可能低级别事务隔离
+
+## 4. select加锁
+
+```
+select ..lock in share mode; #读锁
+select... for update; # 写锁
+```
+
+## 5. 间隙锁
+
+**幻读**：一个事务(同一个read view)在前后两次查询同一范围的时候，后一次查询看到了前一次查询没有看到的行
+
+innodb默认可重复读（RR）下，普通查询（快照读）是看不到其他事务提交的更改
+**幻读只发生在当前读**	
+
+ **如何解决幻读**
+
+- 将两行记录间的空隙加上锁，阻止新记录的插入；这个锁称为**间隙锁**。
+- 间隙锁与间隙锁之间没有冲突关系。跟间隙锁存在冲突关系的，是**往这个间隙中插入一个记录**这个操作。
+
+**间隙锁的生成条件**
+
+​        1.对主键或唯一索引，如果当前读时，where条件全部精确命中(=或者in)，这种场景本身就不会出现幻读，所以只会加行记录锁。
+
+　　2.没有索引的列，当前读操作时，会加全表gap锁，生产环境要注意。
+
+　　3.非唯一索引列，如果where条件部分命中(>、<、like等)或者全未命中，则会加附近Gap间隙锁。例如，某表数据如下，非唯一索引2,6,9,9,11,15。如下语句要操作非唯一索引列9的数据，gap锁将会锁定的列是(6,11]，该区间内无法插入数据。
+
+## 6. 页锁
+
+开销和加锁时间界于表锁和行锁之间；会出现死锁；锁定粒度界于表锁和行锁之间，并发度一般。
+
+# 九、主从复制
+
+## 1. 原理
+
+![image-20201029100327161](D:\myself\springboot-example\文档\typora\images\mysql12.png)
+
+>1 master将改变记录到二进制日志（binary log）。这些记录过程叫做二进制日志事件，binary log events；
+>2 slave将master的binary log events拷贝到它的中继日志（relay log）；
+>3 slave重做中继日志中的事件，将改变应用到自己的数据库中。 MySQL复制是异步的且串行化的
+>
+>复制最大的问题是延时
+
+## 2. 配置
+
+以windows为主机，linux为从机为例
+
+### 2.1 主机修改my.ini
+
+```
+[mysqld]
+service-id=1                                 # 1. 【必须】主服务器唯一id
+log-bin=自己本地的路径/data/mysqlbin            # 2. 【必须】启用二进制日志文件
+log-err=自己本地的路径/data/mysqlerr            # 3. 【可选】启动错误日志
+basedir="自己本地路径"                          # 4. 【可选】根目录
+tmpdir="自己本地路径"                           # 5. 【可选】临时目录
+datadir="自己本地路径/Data/"                    # 6. 【可选】数据目录
+read-only=0                                   # 7.【必须】主机读写都可以
+binlog-ignore-db=mysql                        # 8.【可选】设置不要复制的数据库
+binlog-do-db=需要复制的主数据库名字               # 9.【可选】设置需要复制的数据库，不选默认复制全部
+```
+
+### 2.2 从机修改my.cnf
+
+```
+[mysqld]
+service-id=2                                 # 1. 【必须】从机服务器唯一id
+```
+
+### 2.3 其他操作
+
+​        修改了配置文件，重启mysql
+​        关闭linux和windows的防火墙
+
+### 2.4  master建立账户并授权slave
+
+```
+GRANT REPLICATION SLAVE ON *.* TO 'zhangsan'@'从机器数据库IP' IDENTIFIED BY '123456';
+flush privileges;
+```
+
+```
+show master status;
+```
+
+![image-20201029102149628](D:\myself\springboot-example\文档\typora\images\mysql13.png)
+
+**记录下File和Position的值**
+**执行完此步骤后不要再操作主服务器MYSQL，防止主服务器状态值变化**
+
+### 2.5 slave配置需要复制的master
+
+```
+CHANGE MASTER TO MASTER_HOST='192.168.124.3',
+MASTER_USER='zhangsan',
+MASTER_PASSWORD='123456',
+MASTER_LOG_FILE='mysqlbin.具体数字',MASTER_LOG_POS=具体值;
+
+start/stop slave; # 启动/停止从服务器复制功能
+
+# 验证主从配置成功  Slave_IO_Running: Yes   Slave_SQL_Running: Yes
+show slave status\G   
+```
+
+# 概念
+
+## 1. 当前读和快照读
+
+- ### 当前读
+
+　　select...lock in share mode (共享读锁)
+　　select...for update
+　　update , delete , insert
+
+　　当前读, 读取的是最新版本, 并且**对读取的记录加锁, 阻塞其他事务同时改动相同****记录****，避免出现安全问题**。
+
+　　例如，假设要update一条记录，但是另一个事务已经delete这条数据并且commit了，如果不加锁就会产生冲突。所以update的时候肯定要是当前读，得到最新的信息并且锁定相应的记录。
+
+​        **当前读的实现方式：next-key锁(行记录锁+Gap间隙锁)**
+
+- ###  快照读
+
+　　单纯的select操作，**不包括**上述 select ... lock in share mode, select ... for update。　　　　
+
+　　Read Committed隔离级别：每次select都生成一个快照读。
+
+　　Read Repeatable隔离级别：**开启事务后第一个select语句才是快照读的地方，而不是一开启事务就快照读。**
+
+​        **快照读的实现方式：undolog和多版本并发控制MVCC**
+
+## 2. 聚簇索引和非聚簇索引
+
+**聚簇索引**：innodb的主键索引，叶子节点保存着数据，二级索引指向主键索引
+
+​			1: 主键索引 既存储索引值,又在叶子中存储行的数据
+
+　　    2: 如果没有主键, 则会Unique key做主键
+
+　　    3: 如果没有unique,则系统生成一个内部的rowid做主键.
+
+　　    4: 像innodb中,主键的索引结构中,既存储了主键值,又存储了行数据,这种结构称为”聚簇索引”
+
+​    优势：
+
+​          一个索引项直接对应实际数据记录的存储页，可谓“直达”
+
+​         索引项的排序和数据行的存储排序完全一致，利用这一点，想修改数据的存储顺序，可以通过改变主键的方法
+
+​    劣势：
+
+​         采用平衡二叉树算法，不规则的数据插入，会改变之前的节点状态，导致页分裂问题。
+
+**非聚簇索引**：myisam的主键索引，二级索引和主键索引的叶子节点都有一个指针指向物理行
+
+## 3. 回表和覆盖索引
+
+![img](D:\myself\springboot-example\文档\typora\images\mysql14.png)
+
+  回表查询：扫描了两次索引树
+
+（1）先通过普通索引定位到主键值；
+（2）在通过聚簇索引定位到行记录；
+
+  覆盖索引：extra：Using Index
+
+​         直接通过聚簇索引定位到行记录
+
+## 4. B树和B+树
+
+https://www.cnblogs.com/kenD/p/12751177.html
+
+B树：
+
+​	所有节点都存放数据，由于每页的存储范围有限，当data比较大时会导致每个节点存储的key数量下降，
+
+​    key数量变小回导致树的深度变大，增加查询的磁盘io，继而影响查询性能
+
+![image-20201029185855324](D:\myself\springboot-example\文档\typora\images\mysql15.png)
+
+
+
+
+
+![image-20201029190900648](D:\myself\springboot-example\文档\typora\images\mysql16.png)
+
+![image-20201029192551391](D:\myself\springboot-example\文档\typora\images\mysql17.png)
 
 # 记忆
 
 ## 1.子查询和 join 对比
 
-子查询理解：①先知道需要查询并将数据拿出来(若from 后的表也是一个子查询结果)。②在去寻找满足判断条件的数据(where,on,having 后的参数等)。而这些查询条件通常是通过子查询获得的。
-子查询是一种根据结果找条件的倒推的顺序。比较好理解与判断
-
-join理解：执行完第一步后的结果为一张新表。在将新表与 t_emp 进行下一步的 left join 关联。
-先推出如何获得条件，再像算数题一样一步一步往下 join。可以交换顺序，但只能是因为条件间不相互关联时才能交换顺序。
-join 比 子查询难一点 
-<strong style="color:red">join 能用到索引，但是子查询出来的表会使索引失效。</strong>
+子查询虽然很灵活，但是执行效率并不高，原因：
+执行子查询时，MySQL需要创建临时表，查询完毕后再删除这些临时表，所以，子查询的速度会受到一些影响，这里多了一个创建和销毁临时表的过程。
+<strong style="color:red">join 能用到索引，但是子查询出来的表有时会使索引失效。</strong>
 
 ## 2. MySQL的索引结构为什么使用B+树，而不是其他树形结构？
 
