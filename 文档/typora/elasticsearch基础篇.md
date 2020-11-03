@@ -13,7 +13,11 @@
 | UPDATE table SET    | PUT http://......                              |
 | DELETE              | DELETE http://......                           |
 
-## 1. 类型废弃原因
+## 1. Elasticsearch概述
+
+ES是基于Lucene的搜索服务器，它提供了一个分布式多用户能力的全问搜索引擎，且ES支持RestFulweb风格的url访问。ES是基于Java开发的开源搜索引擎，设计用于云计算，能够达到实时搜索，稳定、可靠、快速。此外，ES还提供了数据聚合分析功能，但在数据分析方面，es的时效性不是很理想，在企业应用中一般还是用于搜索。ES自2016年起已经超过Solr等，称为排名第一的搜索引擎应用。
+
+## 2. 类型废弃原因
 
 我们一直认为ES中的“index”类似于关系型数据库的“database”，而“type”相当于一个数据表。ES的开发者们认为这是一个糟糕的认识。例如：关系型数据库中两个数据表示是独立的，即使他们里面有相同名称的列也不影响使用，但ES中不是这样的。
 
@@ -23,7 +27,7 @@
 
 除此之外，在同一个索引的不同type下存储字段数不一样的实体会导致存储中出现稀疏数据，影响Lucene压缩文档的能力，导致ES查询效率的降低
 
-## 2. 分片(Shard)和副本（Replica）
+## 3. 分片(Shard)和副本（Replica）
 
 ![img](D:\myself\springboot-example\文档\typora\images\es01.png)
 
@@ -50,27 +54,81 @@ Es引入了分片技术。一个分片本身就是一个完成的搜索引擎，
 
 主分片与副本都能处理查询请求, 它们的唯一区别在于只有主分片才能处理索引请求.
 
-# Elasticsearch概述：
+## 4. 聚合
 
-ES是基于Lucene的搜索服务器，它提供了一个分布式多用户能力的全问搜索引擎，且ES支持RestFulweb风格的url访问。ES是基于Java开发的开源搜索引擎，设计用于云计算，能够达到实时搜索，稳定、可靠、快速。此外，ES还提供了数据聚合分析功能，但在数据分析方面，es的时效性不是很理想，在企业应用中一般还是用于搜索。ES自2016年起已经超过Solr等，称为排名第一的搜索引擎应用。
+https://blog.csdn.net/qq_40728028/article/details/105246120
+
+# *analyzer和search_analyzer的区别
+
+```
+{
+    "settings": {
+        "index": {
+            "number_of_replicas": "0",
+            "number_of_shards": "5",
+            "refresh_interval": "-1",
+            "translog.flush_threshold_ops": "100000"
+        }
+    },
+    "mappings": {
+        "etp_t": {
+            "properties": {
+                "dd": {
+                    "type": "multi_field",
+                    "fields": {
+                        "pn": {
+                            "type": "string",
+                            "store": "yes",
+                            "analyzer": "pinyin_first_letter",
+                            "search_analyzer": "pinyin_first_letter"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+分析器主要有两种情况会被使用：
+第一种是插入文档时，将text类型的字段做分词然后插入倒排索引，
+第二种就是在查询时，先对要查询的text类型的输入做分词，再去倒排索引搜索
+
+如果想要让 索引 和 查询 时使用不同的分词器，ElasticSearch也是能支持的，只需要在字段上加上search_analyzer参数
+
+​       在索引时，只会去看字段有没有定义analyzer，有定义的话就用定义的，没定义就用ES预设的
+
+​        在查询时，会先去看字段有没有定义search_analyzer，如果没有定义，就去看有没有analyzer，再没有定义，才会去使用ES预设的
+
+# 索引流程图示
+
+![img](D:\myself\springboot-example\文档\typora\images\es05.png)
+
+![image-20201103194129165](D:\myself\springboot-example\文档\typora\images\es06.png)
 
 # 倒排索引
 
->什么是倒排索引: 倒排索引也叫反向索引，通俗来讲正向索引是通过key找value，反向索引则是通过value找key。
+>倒排索引源于实际应用中需要根据属性的值来查找记录。这种索引表中的每一项都包括一个属性值和具有该属性值的各记录的地址。由于不是由记录来确定属性值，而是由属性值来确定记录的位置，因而称为倒排索引(inverted index)。带有倒排索引的文件我们称为倒排[索引文件](https://baike.baidu.com/item/索引文件)，简称[倒排文件](https://baike.baidu.com/item/倒排文件/4137688)(inverted file)。
+>
+>1.正排索引： 由文档指向关键词
+>
+> 文档--> 单词1 ,单词2
+>
+> 
+>
+>2.倒排索引： 由关键词指向文档
+>
+>单词1--->文档1,文档2，文档3
+>
+>单词2--->文档1，文档2
 
 ## 1. 数据举例
 
 ![在这里插入图片描述](D:\myself\springboot-example\文档\typora\images\es02.png)
 
-正向索引是通过Kate找到id1，然后通过主键id找到数据
-
-反向索引是通过K找到索引树（**Term Index**）中K的位置offset,
-通过offset在**Term Dictionary**中找到以K开头的磁道位置，然后开始查找Kate对应的**倒排列表**（id数组）
-最终找到了数据存放位置
-
 ![image-20201102203105726](D:\myself\springboot-example\文档\typora\images\es03.png)
 
-Elasticsearch分别为每个field都建立了一个倒排索引，24，Kate, John Female这些叫term，而[1,2]就是Posting List倒排列表。Posting list就是一个int的数组，倒排列表记录了出现过某个单词的所有文档的文档列表及单词在该文档中出现的位置信息，每条记录称为一个倒排项(Posting)。根据倒排列表，即可获知哪些文档包含某个单词。
+Elasticsearch分别为每个field分词后都建立了一些倒排索引（**以下举例默认不分词**），24，Kate, John Female这些叫term，而[1,2]就是Posting List倒排列表。Posting list就是一个int的数组，倒排列表记录了出现过某个单词的所有文档的文档列表及单词在该文档中出现的位置信息，每条记录称为一个倒排项(Posting)。根据倒排列表，即可获知哪些文档包含某个单词。
 
 > 思考：如果这里有上千万的记录呢？如何通过term来查找呢？这就需要了解一下Term Dictionary和Term Index的概念
 
