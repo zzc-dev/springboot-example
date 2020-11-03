@@ -58,6 +58,82 @@ Es引入了分片技术。一个分片本身就是一个完成的搜索引擎，
 
 https://blog.csdn.net/qq_40728028/article/details/105246120
 
+
+
+# 二、安装
+
+## 1. es7.6.1安装
+
+1.解压
+
+2.修改config/jvm.options
+
+```
+默认1g,内存不够改小
+-Xms256m
+-Xmx256m
+```
+
+3.启动es bin/elasticsearch.bat
+
+![image-20201103215041536](D:\myself\springboot-example\文档\typora\images\es07.png)
+
+http://127.0.0.1:9200/
+
+## 2. 安装可视化界面head
+
+1.解压
+
+2.head是个webpack前端打包项目，依赖于node和npm，需要先安装相关依赖
+
+3.在head根目录下执行`cnpm install`
+
+4.启动head  `npm run start`
+   <strong style='color:red'>f12  连不上es 9200 端口，跨域问题</strong>
+
+5.解决跨域
+
+修改es /config/elasticsearch.yml (新增) 重启es
+
+```
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+```
+
+http://127.0.0.1:9100/
+
+## 3. 安装kibana
+
+解压 -> 运行 bat
+
+汉化  kibana.yml
+
+```
+i18n.locale: "zh_CN"
+```
+
+http://127.0.0.1:5601/
+
+## 4.安装ik分词器
+
+1.解压到es的 /plugin/ik
+
+2.es/bin    elasticsearch-plugin list 查看es安装插件
+
+3.使用
+
+    ```
+GET _analyze
+{
+  "analyzer": "ik_smart",
+  "text": ["是历史交锋"]
+}
+    ```
+
+4.配置自定义分词库
+
+![image-20201103223821032](D:\myself\springboot-example\文档\typora\images\es08.png)
+
 # *analyzer和search_analyzer的区别
 
 ```
