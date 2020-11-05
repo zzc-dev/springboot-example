@@ -1,3 +1,7 @@
+es文档：https://www.elastic.co/guide/en/elasticsearch/reference/7.6/documents-indices.html
+
+es-java-api：https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/index.html
+
 # 一、es概念
 
 | **RDBS**            | **ES**                                         |
