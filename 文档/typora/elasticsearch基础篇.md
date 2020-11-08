@@ -62,6 +62,46 @@ Es引入了分片技术。一个分片本身就是一个完成的搜索引擎，
 
 https://blog.csdn.net/qq_40728028/article/details/105246120
 
+聚合可以让我们极其方便的实现对数据的统计、分析。
+
+实现这些统计功能的比数据库的sql要方便的多，而且查询速度非常快，可以实现实时搜索效果。
+
+### 4.1 Bucketing
+
+> 生成存储桶的一组聚合，其中每个存储桶都与一个*键* 和一个文档条件相关联。执行聚合时，将对上下文中的每个文档评估所有存储桶条件，并且当条件匹配时，该文档将被视为“落入”相关存储桶。到聚合过程结束时，我们将得到一个存储桶列表-每个存储桶都有一组“属于”存储区的文档。
+>
+> 简而言之，桶的作用，是按照某种方式对数据进行分组，每一组数据在ES中称为一个`桶`
+
+Elasticsearch中提供的划分桶的方式有很多：
+
+- Date Histogram Aggregation：根据日期阶梯分组，例如给定阶梯为周，会自动每周分为一组
+- Histogram Aggregation：根据数值阶梯分组，与日期类似
+- Terms Aggregation：根据词条内容分组，词条内容完全匹配的为一组
+- Range Aggregation：数值和日期的范围分组，指定开始和结束，然后按段分组
+
+bucket aggregations **只负责对数据进行分组，并不进行计算**，因此往往bucket中往往会嵌套另一种聚合：metrics aggregations即度量
+
+### 4.2 Metric
+
+> 分组完成以后，我们一般会对组中的数据进行聚合运算，例如求平均值、最大、最小、求和等，这些在ES中称为`度量`
+
+比较常用的一些度量聚合方式：
+
+- Avg Aggregation：求平均值
+- Max Aggregation：求最大值
+- Min Aggregation：求最小值
+- Percentiles Aggregation：求百分比
+- Stats Aggregation：同时返回avg、max、min、sum、count等
+- Sum Aggregation：求和
+- Top hits Aggregation：求前几
+- Value Count Aggregation：求总数
+
+### 4.3 Matrix
+
+### 4.4 Pipeline
+
+
+
 
 
 # 二、安装

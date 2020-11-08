@@ -1,4 +1,73 @@
-# 入门
+# 一、es增删改
+
+## 1. 添加index及mapping
+
+**格式：**
+
+```
+PUT /index_name/_mapping
+{
+	"properties":{
+		"prop_name":{
+			"type": "具体类型",
+			"index": true,
+			"store": false,
+			"enabled": true,
+			"fields":{  fields设置keyword，上面的type设置text，该字段既可以精确搜索，又可以全文匹配
+				"keyword" : {
+                	"type" : "keyword",
+                	"ignore_above" : 256
+            	}
+			}
+		},
+		"prop_name1":{
+			"properties":{
+				prop_name1相当于map，这里写的格式和prop_name1一致，相当于prop_name1的一个键
+			}
+		}
+	}
+}
+```
+
+**ignore_above**
+
+对超过 `ignore_above` 的字符串，analyzer 不会进行处理；所以就不会索引起来。导致的结果就是最终搜索引擎搜索不到了。这个选项主要对 `not_analyzed` 字段有用，这些字段通常用来进行过滤、聚合和排序。而且这些字段都是结构化的，所以一般不会允许在这些字段中索引过长的项。
+
+**举例：**
+
+```
+PUT /hyomin/
+PUT /hyomin/_mapping
+{
+  "properties" : {
+    "attr" : {
+      "properties" : {
+        "brand" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+    },
+    "images" : {
+      "type" : "keyword",
+      "index" : false
+    },
+    "price" : {
+      "type" : "long"
+    },
+    "title" : {
+      "type" : "text",
+      "analyzer" : "ik_max_word"
+    }
+  }
+}
+```
+
+## 2. 添加文档
 
 如果该请求`customer`尚不存在，该请求将自动创建该索引，添加ID为的新文档`1`，并存储该`name`字段并为其建立索引。
 
@@ -15,7 +84,7 @@ PUT /customer/_doc/1?pretty
 GET /customer/_doc/1?pretty
 ```
 
-**批量索引文件**
+## 3. **批量索引文件**
 
 如果您有很多要编制索引的文档，则可以使用[批量API](https://www.elastic.co/guide/en/elasticsearch/reference/7.6/docs-bulk.html)批量提交。使用批量处理批处理文档操作比单独提交请求要快得多，因为它可以最大程度地减少网络往返次数。
 
@@ -23,7 +92,20 @@ GET /customer/_doc/1?pretty
 curl -H "Content-Type: application/json" -XPOST "localhost:9200/bank/_bulk?pretty&refresh" --data-binary "@D:\myself\accounts.json"
 ```
 
-# 前瞻
+## 4. 关于es映射mapping中的enabled，store，index参数的理解
+
+**enabled**
+
+> 默认是true。只用于mapping中的object字段类型。当设置为false时，**其作用是使es不去解析该字段，并且该字段不能被查询和store**，只有在_source中才能看到（即查询结果中会显示的_source数据）。设置enabled为false，可以不设置字段类型，默认为object
+
+**store**
+
+>默认false。store参数的功能和_source有一些相似。我们的数据默认都会在_source中存在。但我们也可以将数据store起来，不过大部分时候这个功能都很鸡肋。不过有一个例外，当我们使用copy_to参数时，copy_to的目标字段并不会在_source中存储，此时store就派上用场了。
+
+**三者能否同时存在：**
+  首先设置了enabled为false就不能设置store为true了，这两者冲突。而index和store是不冲突的。最后index和enabled之间的问题：enabled需要字段类型为object，而当字段类型为object时，好像不能设置index参数，试了几次都会报错。
+
+# 二、查询结果字段解释
 
    **默认情况下，`hits`响应部分包括符合搜索条件的前10个文档**：
 
