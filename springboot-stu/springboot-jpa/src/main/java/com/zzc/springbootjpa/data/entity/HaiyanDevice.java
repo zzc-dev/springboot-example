@@ -22,7 +22,7 @@ import javax.persistence.Table;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class HaiyanDevice extends BaseEntity {
+public class HaiyanDevice {
 
     /**
      * 设备码
@@ -92,9 +92,4 @@ public class HaiyanDevice extends BaseEntity {
 
     @Basic
     private String viidId;
-
-    @Override
-    public String toString() {
-        return JSON.toJSONString(this);
-    }
 }
