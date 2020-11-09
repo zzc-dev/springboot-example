@@ -1,6 +1,9 @@
 package com.zzc.springbootjpa.controller;
 
+import com.sun.org.apache.xerces.internal.impl.xs.SchemaSymbols;
+import com.zzc.springbootjpa.dao.HaiyanDeviceDao;
 import com.zzc.springbootjpa.dao.UserDao;
+import com.zzc.springbootjpa.data.entity.HaiyanDevice;
 import com.zzc.springbootjpa.data.entity.User;
 import com.zzc.springbootjpa.jpql.JpqlQuerySupport;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +20,22 @@ import java.util.*;
 @RestController
 public class UserController {
 
-    @Autowired
+//    @Autowired
     private UserDao userDao;
+
+
+    @Autowired
+    private HaiyanDeviceDao haiyanDeviceDao;
+
+    @Autowired
+    @GetMapping("/test11")
+    public String testss(){
+        long s = System.currentTimeMillis();
+        List<HaiyanDevice> all = haiyanDeviceDao.findAll();
+        System.out.println(all.size());
+        System.out.println(System.currentTimeMillis() - s);
+        return "";
+    }
 
     @GetMapping("/test")
     public String test(){
