@@ -49,10 +49,10 @@ public class WebSocketStompConfig extends AbstractWebSocketMessageBrokerConfigur
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-                    String uid = accessor.getNativeHeader("uid").get(0);
+//                    String uid = accessor.getNativeHeader("uid").get(0);
 //                    String onDisconnectTopic = accessor.getNativeHeader("onDisconnectTopic").get(0);
 //                    String clientId = accessor.getNativeHeader("clientId").get(0);
-                    Principal principal = () -> uid;
+                    Principal principal = () -> "1";
                     //设置用户信息
                     accessor.setUser(principal);
                     accessor.getSessionAttributes().put("onDisconnectTopic","ond");

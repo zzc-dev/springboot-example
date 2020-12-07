@@ -55,7 +55,7 @@ public class WsController {
     /**
      * 定时推送消息
      */
-    @Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 10000)
     public void callback() {
         // 发现消息
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
