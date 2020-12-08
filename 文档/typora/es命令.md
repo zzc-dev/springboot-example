@@ -623,6 +623,23 @@ aggs:{
 
 
 
+聚合值过滤
+
+```
+{
+    "size": 0,
+    "aggs": {
+        "terms": {
+            "terms": {
+                "field": "mustTags",
+                "include": ".*总则.*",
+                "size": 999
+            }
+        }
+    }
+}
+```
+
 
 
 

@@ -42,11 +42,12 @@
     }
     function connect() {
 
-        var socket = new SockJS('http://localhost:8092/webSocket/ws/stomp');
+        // var socket = new SockJS('http://localhost:8092/webSocket/ws/stomp');
+        var socket = new SockJS('http://localhost:8080/ws/stomp');
         stompClient = Stomp.over(socket);
         stompClient.connect(headers, function (frame) {
             //订阅地址要以/user为前缀，标识是点对点通信，只有当前用户才会收到
-            stompClient.subscribe("/user/singleTalkClient",
+            stompClient.subscribe("/user/realTimeLocation",
                 function (response) {
                     var obj = JSON.parse(response.body);
                     console.error(obj)
