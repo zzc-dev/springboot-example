@@ -57,20 +57,20 @@
                 }
             );
         });
-        // stompClient.connect({}, function (frame) {
-        //     setConnected(true);
-        //     console.log('Connected:' + frame);
-        //     stompClient.subscribe('/topic/say', function (response) {
-        //         showResponse(JSON.parse(response.body).responseMessage);
-        //     });
-        //     // 另外再注册一下定时任务接受
-        //     stompClient.subscribe('/topic/callback', function (response) {
-        //         showCallback(response.body);
-        //     });
-        //     stompClient.subscribe('user/queue/point',function (response) {
-        //         console.log(response);
-        //     })
-        // });
+         stompClient.connect({}, function (frame) {
+             setConnected(true);
+             console.log('Connected:' + frame);
+             stompClient.subscribe('/topic/say', function (response) {
+                 showResponse(JSON.parse(response.body).responseMessage);
+             });
+             // 另外再注册一下定时任务接受
+             stompClient.subscribe('/topic/callback', function (response) {
+                 showCallback(response.body);
+             });
+             stompClient.subscribe('user/queue/point',function (response) {
+                 console.log(response);
+             })
+         });
     }
 
     function disconnect() {
