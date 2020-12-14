@@ -244,9 +244,109 @@ size操作与put和get操作最大的区别在于，size操作需要遍历所有
 >	  `>0 && 数组为空`，表示初始化数组容量大小
 >      `>0 && 数组不为空`，表示扩容阈值
 >      `=-1` 数组正在初始化
->      `<0 && !=-1` 数组正在扩容，并且有n-1个线程正在辅助扩容
+>      `<0 && !=-n` 数组正在扩容，并且有n-1个线程正在辅助扩容
 
- 
+ >**ForwardingNode**
+ >
+ >一个用于连接两个table的节点类。它包含一个nextTable指针，用于指向下一张表。而且这个节点的key value next指针全部为null，它的hash值为-1
+
+### 5.2.1 初始化参数
+
+在new实例传参时，不会初始化数组，数组容量大小:  参数 * 2
+
+```
+public ConcurrentHashMap(int initialCapacity) {
+        if (initialCapacity < 0)
+            throw new IllegalArgumentException();
+        int cap = ((initialCapacity >= (MAXIMUM_CAPACITY >>> 1)) ?
+                   MAXIMUM_CAPACITY :
+                   tableSizeFor(initialCapacity + (initialCapacity >>> 1) + 1));
+        this.sizeCtl = cap;
+    }
+```
+
+### 5.2.2 put
+
+1. 得到key的hash值，开始自旋，直到插入成功
+2. 判断table==null
+3. 是则初始化数组（initTable），然后继续2， 否则执行4
+4. 根据hash得到插入位置的索引，判断该索引的值是否为null，如果为null，执行5，否则执行6
+5. 使用cas插入元素，如果插入失败，意味着别的线程已经改变了当前位置的值，需要重新开始2；否则插入成功执行 8
+6. 判断当前位置的值是否为MOVED，是：当前数组正在扩容，需要辅助扩容；否：执行7
+7. 上述情况全部排除后，需要锁住该节点，然后插入到链表或者树中
+8. 1-7自旋插入元素成功后，计数+1
+
+
+
+![image-20201214105300676](D:\myself\springboot-example\文档\typora\images\map04.png)
+
+```
+final V putVal(K key, V value, boolean onlyIfAbsent) {
+        if (key == null || value == null) throw new NullPointerException();
+        int hash = spread(key.hashCode());
+        int binCount = 0;
+        for (Node<K,V>[] tab = table;;) {
+            Node<K,V> f; int n, i, fh;
+            if (tab == null || (n = tab.length) == 0)
+                tab = initTable();
+            else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+                if (casTabAt(tab, i, null,
+                             new Node<K,V>(hash, key, value, null)))
+                    break;                   // no lock when adding to empty bin
+            }
+            else if ((fh = f.hash) == MOVED)
+                tab = helpTransfer(tab, f);
+            else {
+                V oldVal = null;
+                synchronized (f) {
+                    if (tabAt(tab, i) == f) {
+                        if (fh >= 0) {
+                            binCount = 1;
+                            for (Node<K,V> e = f;; ++binCount) {
+                                K ek;
+                                if (e.hash == hash &&
+                                    ((ek = e.key) == key ||
+                                     (ek != null && key.equals(ek)))) {
+                                    oldVal = e.val;
+                                    if (!onlyIfAbsent)
+                                        e.val = value;
+                                    break;
+                                }
+                                Node<K,V> pred = e;
+                                if ((e = e.next) == null) {
+                                    pred.next = new Node<K,V>(hash, key,
+                                                              value, null);
+                                    break;
+                                }
+                            }
+                        }
+                        else if (f instanceof TreeBin) {
+                            Node<K,V> p;
+                            binCount = 2;
+                            if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
+                                                           value)) != null) {
+                                oldVal = p.val;
+                                if (!onlyIfAbsent)
+                                    p.val = value;
+                            }
+                        }
+                    }
+                }
+                if (binCount != 0) {
+                    if (binCount >= TREEIFY_THRESHOLD)
+                        treeifyBin(tab, i);
+                    if (oldVal != null)
+                        return oldVal;
+                    break;
+                }
+            }
+        }
+        addCount(1L, binCount);
+        return null;
+    }
+```
+
+
 
 ## 5.3 区别
 
@@ -255,3 +355,5 @@ size操作与put和get操作最大的区别在于，size操作需要遍历所有
 但是 JDK1.7 中，**HashMap 容易因为冲突链表过长，造成查询效率低**，所以在 JDK1.8 中，HashMap 引入了红黑树特性，当冲突链表长度大于 8 时，会将链表转化成红黑二叉树结构。
 
 在 JDK1.8 中，与此对应的 ConcurrentHashMap 也是采用了与 HashMap 类似的存储结构，但是 JDK1.8 中 ConcurrentHashMap 并没有采用分段锁的策略，而是在元素的节点上采用 `CAS + synchronized` 操作来保证并发的安全性，源码的实现比 JDK1.7 要复杂的多。
+
+# 六、AQS  ----AbstractQueuedSynchronizer
