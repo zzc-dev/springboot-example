@@ -356,4 +356,21 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 
 在 JDK1.8 中，与此对应的 ConcurrentHashMap 也是采用了与 HashMap 类似的存储结构，但是 JDK1.8 中 ConcurrentHashMap 并没有采用分段锁的策略，而是在元素的节点上采用 `CAS + synchronized` 操作来保证并发的安全性，源码的实现比 JDK1.7 要复杂的多。
 
-# 六、AQS  ----AbstractQueuedSynchronizer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
