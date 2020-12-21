@@ -4,6 +4,8 @@ https://javadoop.com/post/AbstractQueuedSynchronizer#toc0
 
 https://javadoop.com/post/AbstractQueuedSynchronizer-2
 
+https://coderbee.net/index.php/concurrent/20131115/577 【**自旋锁、排队自旋锁、MCS锁、CLH锁**】
+
 # 一、框架
 
 AQS是一个通过内置的**FIFO**双向队列来完成线程的排队工作(内部通过结点head和tail记录队首和队尾元素，元素的结点类型为Node类型
@@ -329,7 +331,175 @@ private void doReleaseShared() {
 
 # 六、公平锁与非公平锁
 
+公平锁：首先看是否有线程再等待，有则直接加入到等待队列，没有尝试获取锁
+
+非公平锁：1.调用lock后，第一次调用CAS进行一次抢锁，如果成功，获取锁返回
+                   2.第一次失败后，调用tryAcquire()不会像公平锁那样判断是否有线程等待，第二次调用CAS再进行抢锁
+
+公平锁和非公平锁就这两点区别，如果这两次 CAS 都不成功，那么后面非公平锁和公平锁是一样的，都要进入到阻塞队列等待唤醒。
+
+相对来说，非公平锁会有更好的性能，因为它的吞吐量比较大。当然，非公平锁让获取锁的时间变得更加不确定，可能会导致在阻塞队列中的线程长期处于饥饿状态。
+
 # 七、Condition
+
+## 7.1 介绍
+
+Condition 的实现类 `AbstractQueuedSynchronizer` 类中的 `ConditionObject`
+
+```
+public class ConditionObject implements Condition, java.io.Serializable {
+        private static final long serialVersionUID = 1173984872572414699L;
+        // 条件队列的第一个节点
+          // 不要管这里的关键字 transient，是不参与序列化的意思
+        private transient Node firstWaiter;
+        // 条件队列的最后一个节点
+        private transient Node lastWaiter;
+        ......
+```
+
+在前面介绍 AQS 的时候，我们有一个**阻塞队列**，用于保存等待获取锁的线程的队列。这里我们引入另一个概念，叫**条件队列**
+
+<img src="D:\myself\springboot-example\文档\typora\images\aqs03.png" alt="condition-2" style="zoom: 50%;" />
+
+## 7.2 await
+
+```
+// 首先，这个方法是可被中断的，不可被中断的是另一个方法 awaitUninterruptibly()
+// 这个方法会阻塞，直到调用 signal 方法（指 signal() 和 signalAll()，下同），或被中断
+public final void await() throws InterruptedException {
+    // 老规矩，既然该方法要响应中断，那么在最开始就判断中断状态
+    if (Thread.interrupted())
+        throw new InterruptedException();
+
+    // 添加到 condition 的条件队列中
+    Node node = addConditionWaiter();
+
+    // 释放锁，返回值是释放锁之前的 state 值
+    // await() 之前，当前线程是必须持有锁的，这里肯定要释放掉
+    int savedState = fullyRelease(node);
+
+    int interruptMode = 0;
+    // 这里退出循环有两种情况，之后再仔细分析
+    // 1. isOnSyncQueue(node) 返回 true，即当前 node 已经转移到阻塞队列了
+    // 2. checkInterruptWhileWaiting(node) != 0 会到 break，然后退出循环，代表的是线程中断
+    while (!isOnSyncQueue(node)) {
+        LockSupport.park(this);
+        if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+            break;
+    }
+    // 被唤醒后，将进入阻塞队列，等待获取锁
+    if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
+        interruptMode = REINTERRUPT;
+    if (node.nextWaiter != null) // clean up if cancelled
+        unlinkCancelledWaiters();
+    if (interruptMode != 0)
+        reportInterruptAfterWait(interruptMode);
+}
+```
+
+### 7.2.1 将节点加入条件队列 addConditionWaiter
+
+```
+// 将当前线程对应的节点入队，插入队尾
+private Node addConditionWaiter() {
+    Node t = lastWaiter;
+    // 如果条件队列的最后一个节点取消了，将其清除出去
+    // 为什么这里把 waitStatus 不等于 Node.CONDITION，就判定为该节点发生了取消排队？
+    if (t != null && t.waitStatus != Node.CONDITION) {
+        // 这个方法会遍历整个条件队列，然后会将已取消的所有节点清除出队列
+        unlinkCancelledWaiters();
+        t = lastWaiter;
+    }
+    // node 在初始化的时候，指定 waitStatus 为 Node.CONDITION
+    Node node = new Node(Thread.currentThread(), Node.CONDITION);
+
+    // t 此时是 lastWaiter，队尾
+    // 如果队列为空
+    if (t == null)
+        firstWaiter = node;
+    else
+        t.nextWaiter = node;
+    lastWaiter = node;
+    return node;
+}
+```
+
+#### 7.2.1.1 遍历链表将已经取消等待的节点清除 unlinkCancelledWaiters
+
+```
+// 等待队列是一个单向链表，遍历链表将已经取消等待的节点清除出去
+// 纯属链表操作，很好理解，看不懂多看几遍就可以了
+private void unlinkCancelledWaiters() {
+    Node t = firstWaiter;
+    Node trail = null;
+    while (t != null) {
+        Node next = t.nextWaiter;
+        // 如果节点的状态不是 Node.CONDITION 的话，这个节点就是被取消的
+        if (t.waitStatus != Node.CONDITION) {
+            t.nextWaiter = null;
+            if (trail == null)
+                firstWaiter = next;
+            else
+                trail.nextWaiter = next;
+            if (next == null)
+                lastWaiter = trail;
+        }
+        else
+            trail = t;
+        t = next;
+    }
+}
+```
+
+### 7.2.2 完全释放独占锁 fullyRelease
+
+> 考虑一下，如果一个线程在不持有 lock 的基础上，就去调用 condition1.await() 方法，它能进入条件队列，但是在上面的这个方法中，由于它不持有锁，release(savedState) 这个方法肯定要返回 false，进入到异常分支，然后进入 finally 块设置 `node.waitStatus = Node.CANCELLED`，这个已经入队的节点之后会被后继的节点”请出去“。
+
+```
+// 首先，我们要先观察到返回值 savedState 代表 release 之前的 state 值
+// 对于最简单的操作：先 lock.lock()，然后 condition1.await()。
+//         那么 state 经过这个方法由 1 变为 0，锁释放，此方法返回 1
+//         相应的，如果 lock 重入了 n 次，savedState == n
+// 如果这个方法失败，会将节点设置为"取消"状态，并抛出异常 IllegalMonitorStateException
+final int fullyRelease(Node node) {
+    boolean failed = true;
+    try {
+        int savedState = getState();
+        // 这里使用了当前的 state 作为 release 的参数，也就是完全释放掉锁，将 state 置为 0
+        if (release(savedState)) {
+            failed = false;
+            return savedState;
+        } else {
+            throw new IllegalMonitorStateException();
+        }
+    } finally {
+        if (failed)
+            node.waitStatus = Node.CANCELLED;
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
