@@ -1588,7 +1588,248 @@ protected final boolean tryReleaseShared(int releases) {
 }
 ```
 
+# 十一、ReentrantReadWriteLock
 
+![img](D:\myself\springboot-example\文档\typora\images\aqs06.png)
+
+## 11.1 Sync
+
+### 11.1.1 state
+​	 int 类型，32位，
+​	读锁使用高16位，表示当前持有读锁的线程数（sharedCount）
+​    写锁使用低16位，表示写锁的重入次数（exclusiveCount）
+
+```
+abstract static class Sync extends AbstractQueuedSynchronizer {
+       static final int SHARED_SHIFT   = 16;
+       // 由于读锁用高位部分，所以读锁个数加1，其实是状态值加 2^16
+       static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
+       // 写锁的可重入的最大次数、读锁允许的最大数量
+       static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
+       // 写锁的掩码，用于状态的低16位有效值
+       static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
+       // 读锁计数，当前持有读锁的线程数
+    static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }
+    // 写锁的计数，也就是它的重入次数
+    static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }
+}
+```
+
+### 11.1.2 公平与非公平
+
+```
+static final class FairSync extends Sync {
+        private static final long serialVersionUID = -2274990926593161451L;
+        final boolean writerShouldBlock() {
+            return hasQueuedPredecessors();
+        }
+        final boolean readerShouldBlock() {
+            return hasQueuedPredecessors();
+        }
+    }
+```
+
+```
+
+static final class NonfairSync extends Sync {
+        private static final long serialVersionUID = -8159625535654395037L;
+        final boolean writerShouldBlock() {
+            return false; // 写线程总是可以闯入
+        }
+        final boolean readerShouldBlock() {
+           //
+            return apparentlyFirstQueuedIsExclusive();
+        }
+    }
+/**如果头节点的下一个节点是独占线程，为了防止独占线程也就是写线程饥饿等待，则后入线程应该排队，否则可以闯入*/
+final boolean apparentlyFirstQueuedIsExclusive() {
+        Node h, s;
+        return (h = head) != null &&
+            (s = h.next)  != null &&
+            !s.isShared()         &&
+            s.thread != null;
+    }
+```
+
+公平锁：无论读写，只要有等待线程就需挂起加入等待队列
+
+非公平锁：写锁：直接尝试获取锁
+				  读锁：阻塞队列头节点的下一个节点时获取写锁，则该线程也需加入阻塞队列
+
+## 11.2 ReadLock之lock
+
+```
+public void lock() {
+    sync.acquireShared(1);
+}
+
+public final void acquireShared(int arg) {
+    if (tryAcquireShared(arg) < 0)
+        doAcquireShared(arg);
+}
+```
+
+### 11.2.1 tryAcquireShared
+
+在以下几种情况，获取读锁会失败：
+
+（1）有线程持有写锁，且该线程不是当前线程，获取锁失败。
+
+（2）写锁空闲 且  公平策略决定 读线程应当被阻塞，除了重入获取，其他获取锁失败。
+
+（3）读锁数量达到最多，抛出异常。
+
+除了以上三种情况，该线程会循环尝试获取读锁直到成功。
+
+```
+protected final int tryAcquireShared(int unused) {
+    Thread current = Thread.currentThread();
+    int c = getState();
+    if (exclusiveCount(c) != 0 &&  // 返回以count表示的独占保留数
+        getExclusiveOwnerThread() != current)
+        return -1;
+    int r = sharedCount(c);
+    if (!readerShouldBlock() &&
+        r < MAX_COUNT &&
+        compareAndSetState(c, c + SHARED_UNIT)) {
+        if (r == 0) {
+            firstReader = current;
+            firstReaderHoldCount = 1;
+        } else if (firstReader == current) {
+            firstReaderHoldCount++;
+        } else {
+            HoldCounter rh = cachedHoldCounter;
+            if (rh == null || rh.tid != getThreadId(current))
+                cachedHoldCounter = rh = readHolds.get();
+            else if (rh.count == 0)
+                readHolds.set(rh);
+            rh.count++;
+        }
+        return 1;
+    }
+    return fullTryAcquireShared(current);
+}
+```
+
+## 11.3 ReadLock.unLock
+
+```
+public void unlock() {
+    sync.releaseShared(1);
+}
+
+public final boolean releaseShared(int arg) {
+    if (tryReleaseShared(arg)) {
+        doReleaseShared();
+        return true;
+    }
+    return false;
+}
+```
+
+### 11.3.1 tryReleaseShared
+
+```
+protected final boolean tryReleaseShared(int unused) {
+    Thread current = Thread.currentThread();
+    if (firstReader == current) {
+        // assert firstReaderHoldCount > 0;
+        if (firstReaderHoldCount == 1)
+            firstReader = null;
+        else
+            firstReaderHoldCount--;
+    } else {
+        HoldCounter rh = cachedHoldCounter;
+        if (rh == null || rh.tid != getThreadId(current))
+            rh = readHolds.get();
+        int count = rh.count;
+        if (count <= 1) {
+            readHolds.remove();
+            if (count <= 0)
+                throw unmatchedUnlockException();
+        }
+        --rh.count;
+    }
+    for (;;) {
+        int c = getState();
+        int nextc = c - SHARED_UNIT;
+        if (compareAndSetState(c, nextc))
+            // Releasing the read lock has no effect on readers,
+            // but it may allow waiting writers to proceed if
+            // both read and write locks are now free.
+            return nextc == 0;
+    }
+}
+```
+
+## 11.4 WriteLock.lock
+
+在以下情况，写锁获取失败：
+
+（1） 写锁为0，读锁不为0   或者写锁不为0，且当前线程不是已获取独占锁的线程，锁获取失败。
+
+（2）写锁数量已达到最大值，写锁获取失败。
+
+（3）当前线程应该阻塞，或者设置同步状态state失败，获取锁失败。
+
+```
+public final void acquire(int arg) {
+        if (!tryAcquire(arg) &&
+            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            selfInterrupt();
+    }
+    
+
+protected final boolean tryAcquire(int acquires) {
+ 
+            Thread current = Thread.currentThread();
+            int c = getState();
+            int w = exclusiveCount(c);
+            if (c != 0) {
+                // 1.写锁为0，读锁不为0    或者写锁不为0，且当前线程不是已获取独占锁的线程，锁获取失败
+                if (w == 0 || current != getExclusiveOwnerThread())
+                    return false;
+                //2. 写锁数量已达到最大值，写锁获取失败
+                if (w + exclusiveCount(acquires) > MAX_COUNT)
+                    throw new Error("Maximum lock count exceeded");
+                // Reentrant acquire
+                setState(c + acquires);
+                return true;
+            }
+            //3.当前线程应该阻塞，或者设置同步状态state失败，获取锁失败。
+            if (writerShouldBlock() ||
+                !compareAndSetState(c, c + acquires))
+                return false;
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+
+```
+
+##  11.5 WriteLock.unLock
+
+```
+ public final boolean release(int arg) {
+        if (tryRelease(arg)) {
+            Node h = head;
+            if (h != null && h.waitStatus != 0)
+                unparkSuccessor(h);
+            return true;
+        }
+        return false;
+    }
+ 
+protected final boolean tryRelease(int releases) {
+            if (!isHeldExclusively())
+                throw new IllegalMonitorStateException();
+            int nextc = getState() - releases;
+            boolean free = exclusiveCount(nextc) == 0;
+            if (free)
+                setExclusiveOwnerThread(null);
+            setState(nextc);
+            return free;
+        }
+```
 
 
 
