@@ -1,4 +1,4 @@
-# 一、Queue
+# 一、Queue接口
 
 api   https://blog.csdn.net/a724888/article/details/80275501
 
@@ -8,7 +8,11 @@ remove/poll    获取对头数据并移除  队列无数据：抛异常/返回nu
 element/peek   获取对头数据       队列无数据：抛异常/返回null
 ```
 
-## BlockingQueue
+# 二、BlockingQueue
+
+```
+interface BlockingQueue<E> extends Queue<E>
+```
 
 |      | 抛出异常                                                     | 特殊值                                                       | 阻塞                                                         | 超时                                                         |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -16,7 +20,102 @@ element/peek   获取对头数据       队列无数据：抛异常/返回null
 | 移除 | [`remove()`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) | [`poll()`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) | [`take()`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) | [`poll(time, unit)`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) |
 | 检查 | [`element()`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) | [`peek()`](https://blog.csdn.net/wei_ya_wen/article/details/19344939) | 不可用                                                       | 不可用                                                       |
 
+## 2.1 LinkedBlockingQueue
 
+### 2.1.1 构造器与Node
+
+默认构造器是无界参数
+
+存储方式：单向链表Node
+
+```
+public LinkedBlockingQueue() {
+     this(Integer.MAX_VALUE);
+}
+public LinkedBlockingQueue(int capacity) {
+    if (capacity <= 0) throw new IllegalArgumentException();
+    this.capacity = capacity;
+    last = head = new Node<E>(null);
+}
+```
+
+```
+static class Node<E> {
+    E item;
+    Node<E> next;
+    Node(E x) { item = x; }
+}
+```
+
+## 2.2 add/offer
+
+```
+public boolean add(E e) {
+    if (offer(e))
+        return true;
+    else
+        throw new IllegalStateException("Queue full");
+}
+
+public boolean offer(E e) {
+    if (e == null) throw new NullPointerException();
+    final AtomicInteger count = this.count;
+    if (count.get() == capacity)
+        return false;
+    int c = -1;
+    Node<E> node = new Node<E>(e);
+    final ReentrantLock putLock = this.putLock;
+    putLock.lock();
+    try {
+        if (count.get() < capacity) {
+            enqueue(node);
+            c = count.getAndIncrement();
+            if (c + 1 < capacity)
+                notFull.signal();
+        }
+    } finally {
+        putLock.unlock();
+    }
+    if (c == 0)
+        signalNotEmpty();
+    return c >= 0;
+}
+```
+
+```
+private void enqueue(Node<E> node) {
+    // assert putLock.isHeldByCurrentThread();
+    // assert last.next == null;
+    last = last.next = node;
+}
+```
+
+<img src="D:\myself\springboot-example\文档\typora\images\queue07.png" alt="在这里插入图片描述" style="zoom:50%;" />
+
+## 2. remove
+
+```
+private E dequeue() {
+    // assert takeLock.isHeldByCurrentThread();
+    // assert head.item == null;
+    Node<E> h = head;
+    Node<E> first = h.next;
+    h.next = h; // help GC
+    head = first;
+    E x = first.item;
+    first.item = null;
+    return x;
+}
+```
+
+head的item永远为null    null -> A->B->null
+
+## 3. 总结
+
+- 队列大小有所不同，ArrayBlockingQueue是**有界**的初始化必须指定大小，而LinkedBlockingQueue可以是有界的也可以是无界的(Integer.MAX_VALUE)，对于后者而言，当添加速度大于移除速度时，在无界的情况下，可能会造成内存溢出等问题。
+- 数据存储容器不同，ArrayBlockingQueue采用的是数组作为数据存储容器，而LinkedBlockingQueue采用的则是以Node节点作为连接对象的链表。
+- 由于ArrayBlockingQueue采用的是数组的存储容器，因此在插入或删除元素时不会产生或销毁任何额外的对象实例，而LinkedBlockingQueue则会生成一个额外的Node对象。这可能在长时间内需要高效并发地处理大批量数据的时，对于GC可能存在较大影响。
+- 两者的实现队列添加或移除的锁不一样，ArrayBlockingQueue实现的队列中的锁是没有分离的，即添加操作和移除操作采用的同一个ReenterLock锁，而LinkedBlockingQueue实现的队列中的锁是分离的，其添加采用的是putLock，移除采用的则是takeLock，这样能大大提高队列的吞吐量，也意味着在高并发的情况下生产者和消费者可以并行地操作队列中的数据，以此来提高整个队列的并发性能。
 
 # 二、Deque
 
@@ -121,44 +220,7 @@ public ArrayBlockingQueue(int capacity, boolean fair) {
 
 依靠putIndex和takeIndex区别尾部和头部
 
-# 六、LinkedBlockingQueue
-
-## 1. add
-
-```
-private void enqueue(Node<E> node) {
-    // assert putLock.isHeldByCurrentThread();
-    // assert last.next == null;
-    last = last.next = node;
-}
-```
-
-<img src="D:\myself\springboot-example\文档\typora\images\queue07.png" alt="在这里插入图片描述" style="zoom:50%;" />
-
-## 2. remove
-
-```
-private E dequeue() {
-    // assert takeLock.isHeldByCurrentThread();
-    // assert head.item == null;
-    Node<E> h = head;
-    Node<E> first = h.next;
-    h.next = h; // help GC
-    head = first;
-    E x = first.item;
-    first.item = null;
-    return x;
-}
-```
-
-head的item永远为null    null -> A->B->null
-
-## 3. 总结
-
-- 队列大小有所不同，ArrayBlockingQueue是**有界**的初始化必须指定大小，而LinkedBlockingQueue可以是有界的也可以是无界的(Integer.MAX_VALUE)，对于后者而言，当添加速度大于移除速度时，在无界的情况下，可能会造成内存溢出等问题。
-- 数据存储容器不同，ArrayBlockingQueue采用的是数组作为数据存储容器，而LinkedBlockingQueue采用的则是以Node节点作为连接对象的链表。
-- 由于ArrayBlockingQueue采用的是数组的存储容器，因此在插入或删除元素时不会产生或销毁任何额外的对象实例，而LinkedBlockingQueue则会生成一个额外的Node对象。这可能在长时间内需要高效并发地处理大批量数据的时，对于GC可能存在较大影响。
-- 两者的实现队列添加或移除的锁不一样，ArrayBlockingQueue实现的队列中的锁是没有分离的，即添加操作和移除操作采用的同一个ReenterLock锁，而LinkedBlockingQueue实现的队列中的锁是分离的，其添加采用的是putLock，移除采用的则是takeLock，这样能大大提高队列的吞吐量，也意味着在高并发的情况下生产者和消费者可以并行地操作队列中的数据，以此来提高整个队列的并发性能。
+- 
 
 # 七、PriorityBlockingQueue
 
