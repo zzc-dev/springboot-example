@@ -105,6 +105,22 @@ curl -H "Content-Type: application/json" -XPOST "localhost:9200/bank/_bulk?prett
 **三者能否同时存在：**
   首先设置了enabled为false就不能设置store为true了，这两者冲突。而index和store是不冲突的。最后index和enabled之间的问题：enabled需要字段类型为object，而当字段类型为object时，好像不能设置index参数，试了几次都会报错。
 
+## 5. 删除数据
+
+```
+POST https://dolphin-dev.kedacom.com/es-common/haiyan_vehicle_file_zzc/a_hy_vehicle/_delete_by_query
+
+{
+    "query":{
+        "wildcard":{
+            "HPHM": "苏E1*"
+        }
+    }
+}
+```
+
+
+
 # 二、查询结果字段解释
 
    **默认情况下，`hits`响应部分包括符合搜索条件的前10个文档**：
