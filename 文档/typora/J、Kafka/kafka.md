@@ -17,6 +17,8 @@ Kafka 是linkedin 公司用于日志处理的分布式消息队列，同时支�
 
 ## 1.2 优点：
 
+>分布式
+>
 ><strong style="color:red">生产者写入数据采用：顺序写入和页缓存技术 </strong>
 >
 ><strong style="color:red">消费者读取数据采用：零拷贝技术 </strong>
@@ -44,17 +46,19 @@ topic是逻辑概念，而partition是物理概念，每个partition对应一个
 
 每个分区目录下都有.index和.log文件，每个log文件存储的大小可配置，默认1G。分区采用分段机制存储，当超过1G时，再次创建一个log文件，文件名为自身最小的offset，当消费组消费消息时，首先根据自身的offset找到index对应的log文件偏移量，根据文件偏移量采用**二分查找**找到对应的log文件。
 
-## 1.3 分区
+# 二、生产者
+
+## 2.1 分区
 
    消费者默认50个分区consumer-offset-n
 
-### 1.3.1 分区原因：
+### 2.1.1 分区原因：
 
 1. 方便在集群中扩展。每个分区可以通过调整以适应所在机器的存储大小，处理速度，而一个topic是由多个partition组成，这样整个集群就可以适应任意大小的数据了
 
  	2. 提高并发度。
 
-### 1.3.2 分区策略（生产者）
+### 2.1.2 分区策略（生产者）
 
 ​		生产者将消息封装成一个`ProducerRecord`对象
 
@@ -62,9 +66,9 @@ topic是逻辑概念，而partition是物理概念，每个partition对应一个
 
 		1. 指定partition
   		2. 没有指明partition但有key的情况，将key的hash值与分区数取模后得到partition值
-  		3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
+    		3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
 
-## 1.4 数据可靠性
+## 2.2 数据可靠性
 
 **ack机制**确保数据成功发送到指定的topic，否则重发
 
@@ -72,7 +76,7 @@ topic是逻辑概念，而partition是物理概念，每个partition对应一个
 
 
 
-### 1.4.1 副本同步策略
+### 2.2.1 副本同步策略
 
 | **方案**                    | **优点**                                           | **缺点**                                             |
 | --------------------------- | -------------------------------------------------- | ---------------------------------------------------- |
@@ -86,7 +90,7 @@ kafka选择第二种方案，原因：
 
 但第二种方案也有不足，如果有一个节点故障，那同步永远完成不了，kafka也无法发送ack，为了应对这个问题，kafka采取`ISR`机制
 
-### 1.4.2 ISR
+### 2.2.2 ISR
 
 Leader维护了一个动态的`in-sync replica set `(ISR)，意为和leader保持同步的follower集合。
 
@@ -96,7 +100,7 @@ ISR存在leader和zookeepr中，是一个动态的队列，当超时（**replica
 
 在0.9版本后，移除了**replica.lag.max.message**配置，原因：当producer批量生产数量>**replica.lag.max.message**时，一定会导致ISR移除所有的follower，直到满足又加入了ISR，频繁的对ISR队列操作，会影响kafka性能。
 
-### 1.4.3 ACK机制
+### 2.2.3 ACK机制
 
 对于某些不太重要的数据，对数据的可靠性要求不是很高，能够容忍数据的少量丢失，没必要等ISR中的follower全部接收成功。
 
@@ -115,6 +119,129 @@ ISR存在leader和zookeepr中，是一个动态的队列，当超时（**replica
     producer等待broker的ack，必须等待leader和follower全部落盘成功才返回ack。如果在同步follower后，leader发送ack前，leader故障，会造成**数据重复**
 
     **数据重复**： 此时follower节点网络故障，没有在`isr`中，此时`isr`只有一个leader，当leader落盘并返回`ack`后，发生故障。这是极限情况，一般不会发生
+
+### 2.2.4 HW和LEO
+
+![image-20210202221238829](D:\myself\springboot-example\文档\typora\images\kafka08.png)
+
+>**HW(Hight Watermark)**:指的是消费者能见到的最大的offset；ISR中最小的LEO
+>
+>**LEO（Log End Offset）**：每个副本中最大的offset
+
+1. follower故障
+
+   follower故障时，`isr`会把当前副本剔除，待该follower恢复后，follower会读取本地磁盘记录的上次的HW，并将log文件高于HW的部分截掉，从HW开始向leader同步（基于leader多退少补），follower的LEO >= 该partition的HW后，就可以重新加入ISR了
+
+2. leader故障
+
+   leader发生故障后，isr会自动选取新的leader，为了保证副本数据的一致性，其余的follwer会先将各自的log文件高于HW的的部分截掉，然后从新的leader同步数据
+
+  **HW只能保证副本间的一致性，并不能保证数据不丢失或者不重复**
+
+### 2.2.5 Exactly Once（精准一次性）语义
+
+​    ACK=-1，可以保证Producer到Server间不丢数据，即`At Least Once`
+
+​			可以保证数据不丢失，但不能保证数据不重复
+
+​    ACK=0, Producer只会发送一次数据，即`At Most Once`
+
+   0.11版本以前，无法做到数据既不丢失，也不重复，也就是做到`Exactly Once`,
+   0.11后，kafka引入了一个重大特性：幂等性。
+
+> 幂等性: 生产者不论发送多少条消息，server都只会持久化一次。
+
+  <strong style="color:red"> **`At Least Once` + 幂等性 =  `Exactly Once`**</strong>
+
+   启用幂等性：
+
+```
+# Produce配置, 设为true，默认ack=-1
+enable.idempotence=true
+```
+
+  开启幂等性的Producer在初始化时kafka分配给一个PID，发往同一个Patition的消息会附带Sequence Number，
+Borker端会对<PID,Partition,SeqNumber>做缓存，当具有相同主键的消息提交时，Broker只会持久化一条。
+
+  PID时Broker分配的， 当Porducer端重启会发生变化。
+
+<strong style="color:red">幂等性无法保证跨区跨会话的`Exactly Once`</strong>
+
+### 2.2.6 事务
+
+
+
+# 三、消费者
+
+## 3.1 消费方式
+
+consumer采用**pull**（拉）模式从broker中读取数据。
+
+push（推）模式很难适应消费速率不同的消费者，因为消息发送速率是由broker决定的。它的目标是尽可能以最快速度传递消息，但是这样很容易造成consumer来不及处理消息，典型的表现就是拒绝服务以及网络拥塞。而pull模式则可以根据consumer的消费能力以适当的速率消费消息。
+
+pull模式不足之处是，如果kafka没有数据，消费者可能会陷入循环中，一直返回空数据。针对这一点，Kafka的消费者在消费数据时会传入一个时长参数timeout，如果当前没有数据可供消费，consumer会等待一段时间之后再返回，这段时长即为timeout。
+
+## 3.2 分区消费策略
+
+### 3.2.1 RoundRobin
+
+轮询分配，把整个消费者组订阅的topic当成一个整体来看。
+
+比如：T1（P1、P2、P3）、T2（P1、P2、P3）、同一个消费者组的C1、C2
+
+kafka以TopicAndPartition类为单位排序后进行轮询分配
+
+假设第一次T1P1分配给了C1，则T1P2就分配给C2，以此类推：
+
+​	C1：T1P1、T1P3、T2P2
+​    C2：T1P2、T2P1、T2P3
+
+ RoundRobin使得每个消费者分配的分区数相差最大值为1，负载均衡。
+
+### 3.2.2 Range
+
+kafka默认分区规则
+
+是以单个topic为单位分配的。
+
+例如T1有7个分区，T2有7个分区，同一个消费者组的C1、C2、C3
+
+7/3 = 2 
+C1分配T1 3个分区，分配T2 3个分区
+C2分配T1 2个分区，分配T2 2个分区
+C3分配T1 2个分区，分配T2 2个分区
+
+每个消费者分区数相差值可能会很大，每个消费者的负载不均衡
+
+## 3.3 offset的存储
+
+由于consumer在消费过程可能会出现断电宕机等故障，consumer恢复后，需要从故障前的位置继续消费，所以consumer需要实时记录自己消费到了哪个offset，以便故障恢复后继续消费。
+
+offset存储在kafka或者zookeeper中，具体存在哪看连接的消费者的初始化方式。
+
+offset的存储的key是：<groupId, topic, partition> --offset，这样消费组重新分配分区时不会重复消费消息
+
+![image-20210202233010758](D:\myself\springboot-example\文档\typora\images\kafka09.png)
+
+# 四、zookeeper在kafka中的作用
+
+![image-20210202233311796](D:\myself\springboot-example\文档\typora\images\kafka10.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
