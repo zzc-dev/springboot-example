@@ -66,7 +66,7 @@ topic是逻辑概念，而partition是物理概念，每个partition对应一个
 
 		1. 指定partition
   		2. 没有指明partition但有key的情况，将key的hash值与分区数取模后得到partition值
-    		3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
+        		3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
 
 ## 2.2 数据可靠性
 
@@ -226,6 +226,21 @@ offset的存储的key是：<groupId, topic, partition> --offset，这样消费�
 # 四、zookeeper在kafka中的作用
 
 ![image-20210202233311796](D:\myself\springboot-example\文档\typora\images\kafka10.png)
+
+# 五、Rebalance
+
+当 Consumer Group 完成 Rebalance 之后，每个 Consumer 实例都会定期地向 Coordinator 发送心跳请求，表明它还存活着。
+
+```
+session.timeout.ms: 10s # 10s后Coordiantor没有收到Consumer的心跳，将其移出Group
+heartbeat.interval.ms：2s #每隔2sConsumer发送一个心跳请求
+```
+
+```
+max.poll.interval.ms: 5min
+限定了 Consumer 端应用程序两次调用 poll 方法的最大时间间隔
+Consumer 程序如果在 5 分钟之内无法消费完 poll 方法返回的消息，那么 Consumer 会主动发起 “离开组” 的请求，Coordinator 也会开启新一轮 Rebalance
+```
 
 
 
