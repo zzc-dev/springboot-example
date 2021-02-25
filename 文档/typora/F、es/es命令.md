@@ -1,3 +1,10 @@
+> curl -X<VERB> '<PROTOCOL>://<HOST>:<PORT>/<PATH>?<QUERY_STRING>' -d '<BODY>'
+
+**`<VERB>`**
+	适当的HTTP方法或动词。例如，`GET`，`POST`， `PUT`，`HEAD`，或`DELETE`。
+
+
+
 # 一、es增删改
 
 ## 1. 添加index及mapping
