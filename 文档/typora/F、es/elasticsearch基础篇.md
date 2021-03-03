@@ -4,6 +4,10 @@ es-java-api：https://www.elastic.co/guide/en/elasticsearch/client/java-rest/cur
 
 # 一、es概念
 
+**近实时**
+
+​     从数据写入到数据可以被搜索大概有1秒的延迟。基于es执行搜索和分析可以达到秒级。
+
 | **RDBS**            | **ES**                                         |
 | ------------------- | ---------------------------------------------- |
 | 数据库（database）  | 索引（index）                                  |
@@ -31,7 +35,19 @@ ES是基于Lucene的搜索服务器，它提供了一个分布式多用户能力
 
 除此之外，在同一个索引的不同type下存储字段数不一样的实体会导致存储中出现稀疏数据，影响Lucene压缩文档的能力，导致ES查询效率的降低
 
-## 3. 分片(Shard)和副本（Replica）
+## 3. 节点
+
+节点是一个elasticsearch的实例	
+
+![image-20210303171401640](D:\myself\springboot-example\文档\typora\images\es09.png)
+
+![image-20210303171824130](D:\myself\springboot-example\文档\typora\images\es10.png)
+
+![image-20210303171859705](D:\myself\springboot-example\文档\typora\images\es11.png)
+
+![image-20210303171929402](D:\myself\springboot-example\文档\typora\images\es12.png)
+
+## 4. 分片(Shard)和副本（Replica）
 
 ![img](D:\myself\springboot-example\文档\typora\images\es01.png)
 
@@ -175,13 +191,11 @@ http://127.0.0.1:5601/
 3.使用
 
     ```
-GET _analyze
-{
-  "analyzer": "ik_smart",
-  "text": ["是历史交锋"]
-}
-    ```
-
+    GET _analyze
+    {
+      "analyzer": "ik_smart",
+      "text": ["是历史交锋"]
+    }
 4.配置自定义分词库
 
 ![image-20201103223821032](D:\myself\springboot-example\文档\typora\images\es08.png)

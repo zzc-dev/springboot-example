@@ -5,6 +5,99 @@
 
 
 
+```json
+# 查看安装的插件
+GET /_cat/plugins?v
+# es集群节点
+GET /_cat/nodes
+# es集群健康情况
+GET /_cluster/health
+```
+
+索引状态
+
+```json
+# 查看索引相关信息
+GET kibana_sample_data_ecommerce
+
+# 查看索引的文档总数
+GET kibana_sample_data_ecommerce/_count
+
+# 查看前10条文档，了解文档格式
+POST kibana_sample_data_ecommerce/_search
+{
+}
+
+#_cat indices API
+# 查看indices
+GET /_cat/indices/kibana*?v&s=index
+
+# 查看状态为绿的索引
+GET /_cat/indices?v&health=green
+ 
+# 按照文档个数排序
+GET /_cat/indices?v&s=docs.count:desc
+
+# 查看具体的字段
+GET /_cat/indices/kibana*?pri&v&h=health,index,pri,rep,docs.count,mt
+
+#How much memory is used per index?
+GET /_cat/indices?v&h=i,tm&s=tm:desc
+```
+
+
+
+更新数据需要指定doc
+
+```json
+put /mapping_test/_doc/1
+{
+  "firstName":"Chan",
+  "lastName": "Jackie",
+  "loginDate":"2018-07-24T10:29:48.103Z"
+}
+
+#更新字段
+post /mapping_test/_doc/1/_update
+{
+  "doc":{"isAdmin":"tet2"}
+}
+```
+
+dynamic mapping
+
+```java
+// 默认映射数值、日期、布尔，所有字符串都将映射为text和keyword
+// "interests":["reading","music"]：数组也是字符串类型
+
+// 设置为false后，新增的字段无法作为条件搜素，结果集有
+// 设置为strict后，无法新增字段
+put /mapping_test/_mapping
+{
+  "dynamic": false  
+}
+
+// 设置mapping
+put /mapping_test
+{
+    "mapping":{
+        "properties":{
+            "fieldName":{
+                "type": "text",
+                "index": false, // 该字段不会建立索引
+                "null_value":"NULL" // 不能为null
+            }
+        }
+    }
+}
+```
+
+
+
+
+
+
+
 # 一、es增删改
 
 ## 1. 添加index及mapping
