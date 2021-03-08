@@ -169,19 +169,28 @@ PUT /hyomin/_mapping
 
 ## 2. 添加文档
 
-如果该请求`customer`尚不存在，该请求将自动创建该索引，添加ID为的新文档`1`，并存储该`name`字段并为其建立索引。
+如果该请求`customer`尚不存在，该请求将自动创建该索引，并存储字段并为其建立索引。
 
-创建索引/添加id=1的文档/更新id=1的文档
-
-```
-PUT /customer/_doc/1?pretty
+```json
+# 自定义id  如果该id存在，会更新整个文档
+PUT /{index}/{type}/{id}
 {
-
-  "name": "John Doe"
-
+  "field": "value",
+  ...
 }
 
-GET /customer/_doc/1?pretty
+# 自动生成id
+POST /{index}/{type}/
+{
+  "field": "value",
+  ...
+}
+    
+PUT /website/blog/123?op_type=create
+{ ... }
+
+PUT /website/blog/123/_create
+{ ... }
 ```
 
 ## 3. **批量索引文件**
@@ -206,6 +215,10 @@ curl -H "Content-Type: application/json" -XPOST "localhost:9200/bank/_bulk?prett
   首先设置了enabled为false就不能设置store为true了，这两者冲突。而index和store是不冲突的。最后index和enabled之间的问题：enabled需要字段类型为object，而当字段类型为object时，好像不能设置index参数，试了几次都会报错。
 
 ## 5. 删除数据
+
+```sense
+DELETE /website/blog/123
+```
 
 ```
 POST https://dolphin-dev.kedacom.com/es-common/haiyan_vehicle_file_zzc/a_hy_vehicle/_delete_by_query
@@ -233,7 +246,35 @@ POST https://dolphin-dev.kedacom.com/es-common/haiyan_vehicle_file_zzc/a_hy_vehi
 - `hits.sort` -文档的排序位置（不按相关性得分排序时）
 - `hits._score`-文档的相关性得分（使用时不适用`match_all`）
 
+# 三、settings
+
+## 3.1 设置分片数和副本数
+
+```json
+PUT /blogs
+{
+   "settings" : {
+      "number_of_shards" : 3,
+      "number_of_replicas" : 1
+   }
+}
+```
+
 # 一般查询
+
+?pretty：调用 Elasticsearch 的 *pretty-print* 功能，该功能 使得 JSON 响应体更加可读
+
+```
+# 检查文档是否存在
+curl -i -XHEAD http://localhost:9200/website/blog/123
+```
+
+
+
+```sense
+# 返回特定字段
+GET /website/blog/123?_source=title,text
+```
 
 ```
 # 全文排序查询 默认只查10条
