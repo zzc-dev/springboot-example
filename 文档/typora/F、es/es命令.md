@@ -193,7 +193,40 @@ PUT /website/blog/123/_create
 { ... }
 ```
 
-## 3. **批量索引文件**
+## 3. 更新文档
+
+```json
+# 更新部分
+POST /website/blog/1/_update
+{
+   "doc" : {
+      "tags" : [ "testing" ],
+      "views": 0
+   }
+}
+
+# 自定义id  如果该id存在，会更新整个文档
+PUT /{index}/{type}/{id}
+{
+  "field": "value",
+  ...
+}
+```
+
+**更新文档尚未存在**
+
+```json
+# upsert: 不存在则先创建
+POST /website/pageviews/1/_update
+{
+   "script" : "ctx._source.views+=1",
+   "upsert": {
+       "views": 1
+   }
+}
+```
+
+## 4. **批量索引文件**
 
 如果您有很多要编制索引的文档，则可以使用[批量API](https://www.elastic.co/guide/en/elasticsearch/reference/7.6/docs-bulk.html)批量提交。使用批量处理批处理文档操作比单独提交请求要快得多，因为它可以最大程度地减少网络往返次数。
 
@@ -201,7 +234,20 @@ PUT /website/blog/123/_create
 curl -H "Content-Type: application/json" -XPOST "localhost:9200/bank/_bulk?pretty&refresh" --data-binary "@D:\myself\accounts.json"
 ```
 
-## 4. 关于es映射mapping中的enabled，store，index参数的理解
+```json
+# 除了delete没有请求体
+# 每个子请求都是独立执行，因此某个子请求的失败不会对其他子请求的成功与否造成影响。 如果其中任何子请求失败，最顶层的 error 标志被设置为 true ，并且在相应的请求报告出错误明细
+POST /_bulk
+{ "delete": { "_index": "website", "_type": "blog", "_id": "123" }}   # 1.要有换行符
+{ "create": { "_index": "website", "_type": "blog", "_id": "123" }}
+{ "title":    "My first blog post" }
+{ "index":  { "_index": "website", "_type": "blog" }}
+{ "title":    "My second blog post" }
+{ "update": { "_index": "website", "_type": "blog", "_id": "123", "_retry_on_conflict" : 3} }
+{ "doc" : {"title" : "My updated blog post"} } # 2.最后一行也要有换行符
+```
+
+## 5. 关于es映射mapping中的enabled，store，index参数的理解
 
 **enabled**
 
@@ -214,7 +260,7 @@ curl -H "Content-Type: application/json" -XPOST "localhost:9200/bank/_bulk?prett
 **三者能否同时存在：**
   首先设置了enabled为false就不能设置store为true了，这两者冲突。而index和store是不冲突的。最后index和enabled之间的问题：enabled需要字段类型为object，而当字段类型为object时，好像不能设置index参数，试了几次都会报错。
 
-## 5. 删除数据
+## 6. 删除数据
 
 ```sense
 DELETE /website/blog/123
@@ -239,11 +285,19 @@ POST https://dolphin-dev.kedacom.com/es-common/haiyan_vehicle_file_zzc/a_hy_vehi
    **默认情况下，`hits`响应部分包括符合搜索条件的前10个文档**：
 
 - `took` – Elasticsearch运行查询多长时间（以毫秒为单位）
+
 - `timed_out` –搜索请求是否超时
+
+  应当注意的是 `timeout` 不是停止执行查询，它仅仅是告知正在协调的节点返回到目前为止收集的结果并且关闭连接。在后台，其他的分片可能仍在执行查询即使是结果已经被发送了
+
 - `_shards` –搜索了多少个分片，以及成功，失败或跳过了多少个分片。
+
 - `max_score` –找到的最相关文件的分数
+
 - `hits.total.value` -找到了多少个匹配的文档
+
 - `hits.sort` -文档的排序位置（不按相关性得分排序时）
+
 - `hits._score`-文档的相关性得分（使用时不适用`match_all`）
 
 # 三、settings
@@ -260,20 +314,18 @@ PUT /blogs
 }
 ```
 
-# 一般查询
+# 四、一般查询
 
-?pretty：调用 Elasticsearch 的 *pretty-print* 功能，该功能 使得 JSON 响应体更加可读
+## 4.1 参数
+
+- pretty：调用 Elasticsearch 的 *pretty-print* 功能，该功能 使得 JSON 响应体更加可读
+- timeout
+
+## 4.2 查询所有文档
 
 ```
-# 检查文档是否存在
-curl -i -XHEAD http://localhost:9200/website/blog/123
-```
-
-
-
-```sense
-# 返回特定字段
-GET /website/blog/123?_source=title,text
+# 查询所有索引的全部文档
+get /_search
 ```
 
 ```
@@ -285,6 +337,28 @@ GET /bank/_search?pretty
     { "account_number": "asc" }
   ]
 }
+```
+
+## 4.3 多索引查询
+
+```
+/gb/_search
+/gb,us/_search
+/g*,u*/_search 在任何以 g 或者 u 开头的索引中搜索所有的类型
+```
+
+
+
+```
+# 检查文档是否存在
+curl -i -XHEAD http://localhost:9200/website/blog/123
+```
+
+
+
+```sense
+# 返回特定字段
+GET /website/blog/123?_source=title,text
 ```
 
 ```
@@ -321,7 +395,48 @@ GET /bank/_search?pretty
 }
 ```
 
-# **bool** 复杂查询
+# 五、复杂查询
+
+## 5.1 多索引批量查询
+
+`_mget`
+
+```
+get /_mget
+{
+  "docs":[
+    {
+      "_index":"user1",
+      "_type":"_doc",
+      "_id": 1
+    },{
+      "_index":"user2",
+      "_type":"_doc",
+      "_id": 1
+    }
+  ]
+}
+
+# 响应
+{
+  "docs" : [
+    {
+      "_index" : "user1",
+      "_type" : "_doc",
+      "_id" : "1",
+      "_version" : 1,
+      "_seq_no" : 0,
+      "_primary_term" : 1,
+      "found" : true,
+      "_source" : {
+        "name" : "zzc"
+      }
+    }
+  ]
+}
+```
+
+
 
 **must / must not ** 必须匹配 / 必须不匹配
 
@@ -363,6 +478,24 @@ GET /bank/_search?pretty
   }
 }
 ```
+
+# 六、轻量搜索 q
+
+```json
+# 查询myindex索引中name包含zzc的文档
+GET /myindex/_doc/_search?q=name:zzc 
+```
+
+查询字符串参数需要URL编码
+
+```json
+# + 前缀表示必须与查询条件匹配 
+# - 前缀表示一定不与查询条件匹配。
+# 没有 + 或者 - 的所有其他条件都是可选的——匹配的越多，文档就越相关。
+GET /_search?q=%2Bname%3Ajohn%2Btweet%3Amary ==>  +name:john +tweet:mary
+```
+
+
 
 # es查询（各字段解释）
 
