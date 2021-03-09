@@ -314,14 +314,104 @@ PUT /blogs
 }
 ```
 
-# 四、一般查询
+# 四、mapping
 
-## 4.1 参数
+## 4.1 创建
+
+`_all`元字段也将在7.0版本中移除, 它建议我们使用`copy_to`定制自己的`all field`
+
+每个属性的键：
+
+- `type`：field的类型
+- `analyzer`：分词器
+- `index`：该字段能否被索引，是否需要建立倒排索引
+- `format`：日期格式化
+
+```
+PUT website
+{
+    "mappings": {
+        "user": {       // 这就是一个root object
+            "_all": { "enabled": false },  // 禁用_all字段
+            "properties": {
+                "user_id": { "type": "text" },
+            	  "name": {
+                    "type": "text",
+                    "analyzer": "english"
+                },
+                "age": { "type": "integer" },
+                "sex": { "type": "keyword" },
+                "birthday": {
+                    "type": "date", 
+                    "format": "strict_date_optional_time||epoch_millis"
+                },
+                "address": {
+                    "type": "text",
+                    "index": false         // 不分词
+                },
+                "phone":{
+                	 "type": "text",
+                	 "fields": {
+                     "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                     }
+                } 
+            }
+        }
+    }
+}
+```
+
+可以对同一个字段建立两个索引
+
+```
+"title":{
+	"type":"text",
+	"analyzed":"standard",
+	"fields":{
+		"title.english":{
+			"type": "text",
+			"analyzed": "english"
+		}
+	}
+}
+```
+
+
+
+## 4.2 更新
+
+无法更新原有field的mapping，但可以新增字段
+
+```
+PUT website/_mapping		// 修改website索引的_mapping, 注意API的顺序
+{
+    "properties": {
+        "new_field": {
+            "type": "text",
+            "index": false
+        }
+    }
+}
+```
+
+## 4.3 查看
+
+```
+get website/_mapping
+```
+
+
+
+# 五、一般查询
+
+## 5.1 参数
 
 - pretty：调用 Elasticsearch 的 *pretty-print* 功能，该功能 使得 JSON 响应体更加可读
 - timeout
 
-## 4.2 查询所有文档
+## 5.2 查询所有文档
 
 ```
 # 查询所有索引的全部文档
@@ -339,7 +429,7 @@ GET /bank/_search?pretty
 }
 ```
 
-## 4.3 多索引查询
+## 5.3 多索引查询
 
 ```
 /gb/_search
@@ -436,50 +526,26 @@ get /_mget
 }
 ```
 
+## 5.2 判断值是否为空
 
-
-**must / must not ** 必须匹配 / 必须不匹配
-
-```
-GET /bank/_search?pretty
+```json
+#相当于select * from users where title is not null
+get /users/_search
 {
-  "query": {
-    "bool": {
-      "must": [
-        { "match": { "age": "40" } }
-      ],
-      "must_not": [
-        { "match": { "state": "ID" } }
-      ]
-    }
-  }
-}
-```
-
-**filter**
-
-**range** 范围查找
-
-```
-GET /bank/_search?pretty
-{
-  "query": {
-    "bool": {
-      "must": { "match_all": {} },
-      "filter": {
-        "range": {
-          "balance": {
-            "gte": 20000,
-            "lte": 30000
-          }
+  "query":{
+    "bool":{
+      "must":{  # must_not 相反：查找title=null的文档
+        "exists":{
+          "field": "title"
         }
       }
+      
     }
   }
 }
 ```
 
-# 六、轻量搜索 q
+# 六、简易查询 query-string search
 
 ```json
 # 查询myindex索引中name包含zzc的文档
@@ -717,35 +783,42 @@ GET my_index/my_type/_search
 
 请求不出数据的，因为full_text分词后的结果中没有[Quick Foxes!]这个分词。
 
-## 5. bool联合查询: must,should,must_not
+## 5. terms
 
-如果我们想要请求"content中带宝马，但是tag中不带宝马"这样类似的需求，就需要用到bool联合查询。
-联合查询就会使用到must,should,must_not三种关键词。
+`terms` 查询和 `term` 查询一样，但它允许你指定多值进行匹配。如果这个字段包含了指定值中的任何一个值，那么这个文档满足条件：
 
-这三个可以这么理解
-
-- must: 文档必须完全匹配条件
-- should: should下面会带一个以上的条件，至少满足一个条件，这个文档就符合should
-- must_not: 文档必须不匹配条件
-
-比如上面那个需求：
-
+```sense
+{ "terms": { "tag": [ "search", "full_text", "nosql" ] }}
 ```
+
+和 `term` 查询一样，`terms` 查询对于输入的文本不分析。它查询那些精确匹配的值（包括在大小写、重音、空格等方面的差异）
+
+## 6. bool联合查询
+
+- `must`: 文档 *必须* 匹配这些条件才能被包含进来
+- `must_not`: 文档 *必须不* 匹配这些条件才能被包含进来
+- `should`:  如果满足这些语句中的任意语句，将增加 `_score` ，否则，无任何影响。它们主要用于修正每个文档的相关性得分。
+
+## 7. filter
+
+**过滤查询（Filtering queries）**
+
+​		只是简单的检查包含或者排除，这就使得计算起来非常快
+
+​		结果会被缓存到内存中以便快速读取
+
+## 8. range
+
+`gt`   >           `lt` <     `gte` >=        `lte` <=
+
+```sense
 {
-  "query": {
-    "bool": {
-      "must": {
-        "term": {
-          "content": "宝马"
+    "range": {
+        "age": {
+            "gte":  20,
+            "lt":   30
         }
-      },
-      "must_not": {
-        "term": {
-          "tags": "宝马"
-        }
-      }
     }
-  }
 }
 ```
 

@@ -378,6 +378,34 @@ PUT /website/blog/2?version=5&version_type=external
 }
 ```
 
+### 5.4 字段类型
+
+`date`
+
+​         JSON中没有date类型，es中的date可以由下面3种方式表示：
+
+​            ①格式化的date字符串，例如"2018-01-01"或者"2018-01-01 12:00:00"
+
+​            ②一个long型的数字，代表从1970年1月1号0点到现在的毫秒数
+
+​            ③一个integer型的数字，代表从1970年1月1号0点到现在的秒数
+
+​      在es内部，date被转为UTC，并被存储为一个长整型数字，代表从1970年1月1号0点到现在的毫秒数
+
+  ```
+默认格式：strict_date_optional_time||epoch_millis
+  strict_date_optional_time  
+  	年份、月份、天必须分别以4位、2位、2位表示，不足两位的话第一位需用0补齐
+  	支持："yyyy-MM-dd"、"yyyyMMdd"、"yyyyMMddHHmmss"、"yyyy-MM-ddTHH:mm:ss"、"yyyy-MM-ddTHH:mm:ss.SSS"、"yyyy-MM-ddTHH:mm:ss.SSSZ"
+  	不支持："yyyy-MM-dd HH:mm:ss"
+  epoch_millis
+  	epoch_millis约束值必须大于等于Long.MIN_VALUE，小于等于Long.MAX_VALUE
+yyyy-MM-dd HH:mm:ss
+	自定义格式
+  ```
+
+
+
 ## 6. 批量操作 _bulk
 
 除了delete没有请求体
@@ -400,6 +428,216 @@ POST /_bulk
  **批量操作建议大小**
 
 > 1000-5000个文档并且占用内存5-15M
+
+## 7. mapping
+
+### 7.1 什么是mapping
+
+>定义index的元数据，指定要索引并存储的文档的字段类型
+
+**检索时用到的分析策略, 要和建立索引时的分析策略相同, 否则将导致数据不准确**
+
+(2) ES对不同的类型有不同的存储和检索策略.
+
+> ① 比如: 对full text型的数据类型(如text), 在索引时, 会经过各类处理 (包括分词、normalization(时态转换、同义词转换、大小写转换)等处理), 才会建立到索引数据中.
+> ② 再比如: 对exact value(如date), 在索引的分词阶段, 会将整个value作为一个关键词建立到倒排索引中.
+
+### 7.2 mapping的更新
+
+- 映射一旦创建完成, 就不允许修改:
+
+  ​    —— Elasticsearch对文档的分析、存储、检索等过程, 都是严格按照mapping中的配置进行的. 如果允许后期修改mapping, 在检索时对索引的处理将存在不一致的情况, 导致数据检索行为不准确.
+
+- **只能在创建index的时候手动配置mapping, 或者新增field mapping, 但是不能update field mapping.**
+
+## 8. dynamic mapping
+
+### 8.1 什么是动态映射
+
+动态映射时Elasticsearch的一个重要特性: 不需要提前创建iindex、定义mapping信息和type类型, 你可以 **直接向ES中插入文档数据时, ES会根据每个新field可能的数据类型, 自动为其配置type等mapping信息**, 这个过程就是动态映射(dynamic mapping).
+
+Elasticsearch动态映射的示例:
+
+| 字段内容(field) | 映射的字段类型(type) |
+| --------------- | -------------------- |
+| true \| false   | boolean              |
+| 1234            | long                 |
+| 123.4           | float                |
+| 2018-10-10      | date                 |
+| "hello world"   | text                 |
+
+### 8.2 动态映射策略
+
+| 策略     | 功能说明                             |
+| -------- | ------------------------------------ |
+| `true`   | 开启 —— 遇到陌生字段时, 进行动态映射 |
+| `false`  | 关闭 —— 忽略遇到的陌生字段           |
+| `strict` | 遇到陌生字段时, 作报错处理           |
+
+```
+PUT blog_user
+{
+  "mappings": {
+      "_doc": {
+          "dynamic": "strict",			// 严格控制策略
+          "properties": {
+              "name": { "type": "text" },
+              "address": {
+                  "type": "object",
+                  "dynamic": "true"		// 开启动态映射策略
+              }
+          }
+      }
+  }
+}
+```
+
+### 8.3 添加自定义动态映射模板
+
+ 在type中定义动态映射模板(dynamic mapping template) —— 把所有的String类型映射成text和keyword类型
+
+```
+PUT blog_user
+{
+    "mappings": {
+        "_doc": {
+            "dynamic_templates": [
+                {
+                    "en": {       // 动态模板的名称
+                        "match": "*_en",           // 匹配名为"*_en"的field
+                        "match_mapping_type": "string",
+                        "mapping": {
+                            "type": "text",        // 把所有的string类型, 映射成text类型
+                            "analyzer": "english", // 使用english分词器
+                            "fields": {
+                                "raw": {
+                                    "type": "keyword",
+                                    "ignore_above": 256
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+## 9. 分词器
+
+Elasticsearch 为很多世界流行语言提供良好的、简单的、开箱即用的语言分析器集合。
+
+- 空格拆分单词
+- 大写转小写
+- 移除常用的*停用词*，如`the`
+- 将变型词（例如复数词，过去式）转化为词根, 如foxes` → `fox      
+
+### 9.1 analysis与analyzer
+
+> analysis（文本分析）：把全文本转换为一系列单词（term/token）的过程，也叫分词
+>
+> analyzer：analysis的实现
+
+### 9.2 analyzer的组成
+
+<img src="D:\myself\springboot-example\文档\typora\images\es19.png" alt="image-20210309171658460" style="zoom: 50%;" />
+
+- Character Filters：处理原始文本，如去除html标签
+- Tokenizer（分词器）：按照规则拆分为单词
+- Token Filters：将切分的单词进行加工，如：小写，删除stopwords，增加同义词等
+
+### 9.3 es内置分词器
+
+- Standard Analyzer：默认分词器，按词切分，小写处理
+- Simple Analyzer：安装非字母切分，符号被过滤，小写处理
+- Stop Analyzer：小写处理，停用词过滤
+- WhiteSpace Analyzer：按空格切分，不转小写
+- Keyword Analyzer：不分词
+- Pattern Analyzer：正则表达式，默认\\W+（非字符分隔）
+- Language：提供30多种常见语言的分词器
+- Customer Analyzer：自定义分词器
+
+### 9.4 自定义分词器
+
+```json
+PUT /my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_english": {
+          "type": "english",
+          "stem_exclusion": [ "organization", "organizations" ],  # 1. 防止 organization 和 organizations 被缩减为词干
+          "stopwords": [                                          # 2. 指定一个自定义停用词列表
+            "a", "an", "and", "are", "as", "at", "be", "but", "by", "for",
+            "if", "in", "into", "is", "it", "of", "on", "or", "such", "that",
+            "the", "their", "then", "there", "these", "they", "this", "to",
+            "was", "will", "with"
+          ]
+        }
+      }
+    }
+  }
+}
+
+```
+
+## 10. 复杂域
+
+### 10.1 多值域
+
+```js
+{ "tag": [ "search", "nosql" ]}
+```
+
+*数组中所有的值必须是相同数据类型的*
+
+查询时得到的`_source`和插入时顺序是一样的，但实际保存是无序的，不能再查询时指定第一个
+
+### 10.2 空域
+
+在 Lucene 中是不能存储 `null` 值的，所以我们认为存在 `null` 值的域为空域。
+
+```js
+"null_value":               null,
+"empty_array":              [],
+"array_with_null_value":    [ null ]
+```
+
+### 10.3 多层级对象
+
+```json
+{
+    "tweet":            "Elasticsearch is very flexible",
+    "user": {    # mapping的type为object
+        "id":           "@johnsmith",
+        "gender":       "male",
+        "age":          26,
+        "name": {
+            "full":     "John Smith",
+            "first":    "John",
+            "last":     "Smith"
+        }
+    }
+}
+```
+
+**内部对象是如何索引的？**
+
+Lucene 不理解内部对象。 Lucene 文档是由一组键值对列表组成的。为了能让 Elasticsearch 有效地索引内部类，它把我们的文档转化成这样：
+
+```js
+{
+    "tweet":            [elasticsearch, flexible, very],
+    "user.id":          [@johnsmith],
+    "user.gender":      [male],
+    "user.age":         [26],
+    "user.name.full":   [john, smith],
+    "user.name.first":  [john],
+    "user.name.last":   [smith]
+}
+```
 
 # document api
 
