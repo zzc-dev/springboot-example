@@ -561,7 +561,19 @@ GET /myindex/_doc/_search?q=name:zzc
 GET /_search?q=%2Bname%3Ajohn%2Btweet%3Amary ==>  +name:john +tweet:mary
 ```
 
+# 七、验证查询
 
+```json
+# 验证查询语法是否正确  加上参数 ?explain 可以得到失败或者成功的详细信息
+get /user1/_validate/query
+{
+  "query":{
+    "match1":{
+      "age": "zzc"
+    }
+  }
+}
+```
 
 # es查询（各字段解释）
 
@@ -793,21 +805,7 @@ GET my_index/my_type/_search
 
 和 `term` 查询一样，`terms` 查询对于输入的文本不分析。它查询那些精确匹配的值（包括在大小写、重音、空格等方面的差异）
 
-## 6. bool联合查询
-
-- `must`: 文档 *必须* 匹配这些条件才能被包含进来
-- `must_not`: 文档 *必须不* 匹配这些条件才能被包含进来
-- `should`:  如果满足这些语句中的任意语句，将增加 `_score` ，否则，无任何影响。它们主要用于修正每个文档的相关性得分。
-
-## 7. filter
-
-**过滤查询（Filtering queries）**
-
-​		只是简单的检查包含或者排除，这就使得计算起来非常快
-
-​		结果会被缓存到内存中以便快速读取
-
-## 8. range
+## 6. range
 
 `gt`   >           `lt` <     `gte` >=        `lte` <=
 
@@ -817,6 +815,32 @@ GET my_index/my_type/_search
         "age": {
             "gte":  20,
             "lt":   30
+        }
+    }
+}
+```
+
+## 7. bool联合查询
+
+- `must`: 文档 *必须* 匹配这些条件才能被包含进来
+
+- `must_not`: 文档 *必须不* 匹配这些条件才能被包含进来
+
+- `should`:  如果满足这些语句中的任意语句，将增加 `_score` ，否则，无任何影响。它们主要用于修正每个文档的相关性得分。
+
+- `filter`*必须* 匹配，但它以不评分、过滤模式来进行。这些语句对评分没有贡献，只是根据过滤标准来排除或包含文档。
+
+  ​	结果会被缓存到内存中以便快速读取
+
+## 8. constant_score
+
+​	相当于bool中只有一个filter
+
+```sense
+{
+    "constant_score":   {
+        "filter": {
+            "term": { "category": "ebooks" } 
         }
     }
 }
