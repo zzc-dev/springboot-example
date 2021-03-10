@@ -346,6 +346,129 @@ GET /old_index/_search?scroll=1m
 
 当一个搜索请求被发送到某个节点时，这个节点就变成了协调节点。 这个节点的任务是广播查询请求到所有相关分片并将它们的响应整合成全局排序后的结果集合，这个结果集合会返回给客户端。
 
+### 3.7 分片内部原理
+
+#### 3.7.1 近实时搜索
+
+通过增加新的补充索引来反映新近的修改，而不是直接重写整个倒排索引
+
+Elasticsearch 基于 Lucene, 这个 java 库引入了 *按段搜索* 的概念。
+
+>ES索引（逻辑概念）= 多个分片（物理概念）
+>
+>1个分片  = 1个Lucene索引 => 多个段Segment+ Commit point
+
+
+
+<img src="D:\myself\springboot-example\文档\typora\images\es22.png" alt="A Lucene index with a commit point and three segments" style="zoom:50%;" />
+
+提交（Commiting）一个新的段到磁盘需要一个 [`fsync`](http://en.wikipedia.org/wiki/Fsync) 来确保段被物理性地写入磁盘，这样在断电的时候就不会丢失数据。 但是 `fsync` 操作代价很大; 如果每次索引一个文档都去执行一次的话会造成很大的性能问题。
+
+  1. 新的文档被写入内存索引缓冲区`In-memory-buffer`和`translog`
+
+     <img src="D:\myself\springboot-example\文档\typora\images\es23.png" alt="New documents are added to the in-memory buffer and appended to the transaction log" style="zoom:67%;" />
+
+  2. `refresh`
+
+     **写入和打开一个新段的轻量的过程叫做 *refresh* 。 默认情况下每个分片会每秒自动刷新一次。**
+
+     这就是为什么我们说 Elasticsearch 是 ***近* 实时搜索: 文档的变化并不是立即对搜索可见，但会在一秒之内变为可见**。
+
+     每隔1s将`In-memory buffer`的文档写入到一个新段，并将新段写到内存缓冲区
+
+     **刷新（refresh）完成后,` In-memory buffer`被清空但是`TransLog`不会**
+
+     ```json
+     # 刷新（Refresh）所有的索引。
+     POST /_refresh 
+     # 只刷新（Refresh） blogs 索引。
+     POST /blogs/_refresh 
+     ```
+
+     <img src="D:\myself\springboot-example\文档\typora\images\es24.png" alt="After a refresh, the buffer is cleared but the transaction log is not" style="zoom:67%;" />
+
+     ```json
+     # 优化索引速度而不是近实时搜索， 可以通过设置 `refresh_interval` ， 降低每个索引的刷新频率：
+     PUT /my_logs
+     {
+       "settings": {
+         "refresh_interval": "30s" 
+       }
+     }
+     
+     # 在生产环境中，当你正在建立一个大的新索引时，可以先关闭自动刷新，待开始使用该索引时，再把它们调回来：
+     PUT /my_logs/_settings
+     { "refresh_interval": -1 } 
+     
+     PUT /my_logs/_settings
+     { "refresh_interval": "1s" } 
+     ```
+
+		3. 这个进程继续工作，更多的文档被添加到内存缓冲区和追加到事务日志
+
+  4. `flush`
+
+     每隔一段时间—例如 translog 变得越来越大—索引被刷新（flush）；一个新的 translog 被创建，并且一个全量提交被执行
+
+      **在刷新（flush）之后，段被全量提交，并且事务日志被清空**
+
+     - 所有在内存缓冲区的文档都被写入一个新的段。
+     - 缓冲区被清空。
+     - 一个提交点被写入硬盘。
+     - 文件系统缓存通过 `fsync` 被刷新（flush）。
+     - 老的 translog 被删除
+
+#### 3.7.2 translog
+
+​	如果没有用 `fsync` 把数据从文件系统缓存刷（flush）到硬盘，我们不能保证数据在断电甚至是程序正常退出之后依然存在。为了保证 Elasticsearch 的可靠性，需要确保数据变化被持久化到磁盘
+
+​	Elasticsearch 增加了一个 *translog* ，或者叫事务日志，在每一次对 Elasticsearch 进行操作时均进行了日志记录。
+
+​	translog 提供所有还没有被刷到磁盘的操作的一个持久化纪录。当 Elasticsearch 启动的时候， 它会从磁盘中使用最后一个提交点去恢复已知的段，并且会重放 translog 中所有在最后一次提交后发生的变更操作。
+
+​	translog 也被用来提供实时 CRUD 。当你试着**通过ID**查询、更新、删除一个文档，它会在尝试从相应的段中检索之前， 首先检查 translog 任何最近的变更。这意味着它总是能够实时地获取到文档的最新版本。
+
+> 通过ID 实时CRUID
+
+#### 3.7.3 flush API
+
+​	这个执行一个提交并且截断 translog 的行为在 Elasticsearch 被称作一次 *flush* 。
+
+​    分片每30分钟被自动刷新（flush），或者在 translog 太大的时候也会刷新。
+
+```json
+# 	刷新（flush） blogs 索引。
+POST /blogs/_flush 
+# 刷新所有的索引并等待完成
+POST /_flush?wait_for_ongoing 
+```
+
+#### 3.7.4 段合并
+
+​	由于自动刷新流程每秒会创建一个新的段 ，这样会导致短时间内的段数量暴增。而段数目太多会带来较大的麻烦。 每一个段都会消耗文件句柄、内存和cpu运行周期。更重要的是，每个搜索请求都必须轮流检查每个段；所以段越多，搜索也就越慢。
+
+​    **段合并的时候会将那些旧的已删除文档从文件系统中清除**。
+
+​    启动段合并不需要你做任何事。进行索引和搜索时会自动进行。
+
+   **optimize API**
+
+​		`optimize` API大可看做是 *强制合并* API。它会将一个分片强制合并到 `max_num_segments` 参数指定大小的段数目。 这样做的意图是减少段的数量（通常减少到一个），来提升搜索性能。
+
+```
+optimize API 不应该 被用在一个活跃的索引————一个正积极更新的索引。后台合并流程已经可以很好地完成工作。 optimizing 会阻碍这个进程。不要干扰它！
+```
+
+在特定情况下，使用 `optimize` API 颇有益处。例如在日志这种用例下，每天、每周、每月的日志被存储在一个索引中。 老的索引实质上是只读的；它们也并不太可能会发生变化。
+
+在这种情况下，使用optimize优化老的索引，将每一个分片合并为一个单独的段就很有用了；这样既可以节省资源，也可以使搜索更加快速：
+
+```json
+POST /logstash-2014-10/_optimize?max_num_segments=1 
+```
+
+请注意，使用 `optimize` API 触发段合并的操作不会受到任何资源上的限制。这可能会消耗掉你节点上全部的I/O资源, 使其没有余裕来处理搜索请求，从而有可能使集群失去响应。 如果你想要对索引执行 `optimize`，你需要先使用分片分配把索引移到一个安全的节点，再执行。
+
 ## 4. 索引
 
 必须小写，不能以下划线开头，不能包含逗号
