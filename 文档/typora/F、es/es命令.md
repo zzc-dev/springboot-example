@@ -650,6 +650,7 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 完全匹配可能比较严，我们会希望有个可调节因子，少匹配一个也满足，那就需要使用到slop。
 
 ```
+https://www.elastic.co/guide/cn/elasticsearch/guide/current/slop.html
 {
   "query": {
     "match_phrase": {
@@ -662,12 +663,50 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 }
 ```
 
+### 2.1 多值字段的匹配
+
+```json
+PUT /my_index/groups/1
+{
+    "names": [ "John Abraham", "Lincoln Smith"]
+}
+
+# 对 Abraham Lincoln 进行match_phrase查询，也能匹配，不合乎常识
+原因：
+	在分析 John Abraham 的时候， 产生了如下信息：
+        Position 1: john
+        Position 2: abraham
+	在分析 Lincoln Smith 的时候， 产生了：
+        Position 3: lincoln
+        Position 4: smith
+     以上数组分析生成了与分析单个字符串 John Abraham Lincoln Smith 
+#解决方案：position_increment_gap，这样匹配该文档就需要slop=100
+PUT /my_index/_mapping/groups 
+{
+    "properties": {
+        "names": {
+            "type":                "text",
+            "position_increment_gap": 100
+        }
+    }
+}
+	在分析 John Abraham 的时候， 产生了如下信息：
+        Position 1: john
+        Position 2: abraham
+	在分析 Lincoln Smith 的时候， 产生了：
+        Position 103: lincoln
+        Position 104: smith
+```
+
+
+
 ## 3. multi_match
 
 > 如果我们希望两个字段进行匹配，其中一个字段有这个文档就满足的话，使用multi_match
 
 ```json
 # query 匹配文档
+     # ["title","body^2"] 提升字段的权重， body的boost为2
 # fields 匹配的字段
 # type 匹配类型
 # tie_breaker 没有完全匹配文档的评分系数，默认为0，不参与评分
@@ -688,6 +727,7 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 
 > 完全匹配的文档占的评分比较高
 >
+> 字段中心式（field-centric）
 
 ```json
 # 完全匹配"宝马 发动机"的文档评分会比较靠前，如果只匹配宝马的文档评分乘以0.3的系数
@@ -726,6 +766,8 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 ### 3.2 most_fields
 
 > 越多字段匹配的文档评分越高
+>
+> 字段中心式（field-centric）
 
 ```
 {
@@ -745,6 +787,8 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 ### 3.3 cross_fields
 
 > 词条的分词词汇是分配到不同字段评分越高
+>
+> 词中心式（term-centric）
 
 ```
 {
@@ -954,6 +998,86 @@ GET /my_store/_search
     "constant_score":   {
         "filter": {
             "term": { "category": "ebooks" } 
+        }
+    }
+}
+```
+
+## 9. copy to
+
+```sense
+PUT /my_index
+{
+    "mappings": {
+        "person": {
+            "properties": {
+                "first_name": {
+                    "type":     "string",
+                    "copy_to":  "full_name" 
+                },
+                "last_name": {
+                    "type":     "string",
+                    "copy_to":  "full_name" 
+                },
+                "full_name": {
+                    "type":     "string"
+                }
+            }
+        }
+    }
+}
+```
+
+## 10. shingles
+
+https://www.elastic.co/guide/cn/elasticsearch/guide/current/shingles.html
+
+## 11. prefix 部分查询
+
+```json
+{
+    "query": {
+        "prefix": {
+            "postcode": "W1"
+        }
+    }
+}
+# 搜索前不分析如何在倒排索引中查询？
+	1. 扫描词列表并查找到第一个以 W1 开始的词。
+    2. 搜集关联的文档 ID 。
+    3. 移动到下一个词。
+    4. 如果这个词也是以 W1 开头，查询跳回到第二步再重复执行，直到下一个词不以 W1 为止。
+
+# prefix 查询或过滤对于一些特定的匹配是有效的，但使用方式还是应当注意。当字段中词的集合很小时，可以放心使用，但是它的伸缩性并不好，会对我们的集群带来很多压力。可以使用较长的前缀来限制这种影响，减少需要访问的量。
+```
+
+`prefix` 查询是一个词级别的底层的查询
+
+>默认状态下， `prefix` 查询不做相关度评分计算，它只是将所有匹配的文档返回，并为每条结果赋予评分值 `1` 。
+>它的行为更像是过滤器而不是查询。 
+>`prefix` 查询和 `prefix` 过滤器这两者实际的区别就是过滤器是可以被缓存的，而查询不行。
+
+## 12. wildcard
+
+ `wildcard` 通配符查询也是一种底层基于词的查询
+
+ `?` 匹配任意字符， `*` 匹配 0 或多个字符。
+
+支持正则表达式
+
+## 13. match_phrase_prefix
+
+这种查询的行为与 `match_phrase` 查询一致，不同的是它将查询字符串的最后一个词作为前缀使用，
+
+```json
+# max_expansions 可选
+	# 控制着可以与前缀匹配的词的数量，它会先查找第一个与前缀 bl 匹配的词，然后依次查找搜集与之匹配的词（按字母顺序），直到没有更多可匹配的词或当数量超过 max_expansions 时结束。
+{
+    "match_phrase_prefix" : {
+        "brand" : {
+            "query": "walker johnnie bl", 
+            "slop":  10,
+            "max_expansions": 50 
         }
     }
 }

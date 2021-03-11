@@ -1090,6 +1090,10 @@ Doc_3 | dog, dogs, fox, jumped, over, quick, the
 
 **Doc Values 数据压缩**
 
+## 12. Ngrams
+
+ 即时搜索https://www.elastic.co/guide/cn/elasticsearch/guide/current/_ngrams_for_partial_matching.html
+
 # document api
 
 ## 1. 索引API
