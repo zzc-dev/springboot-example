@@ -575,6 +575,20 @@ get /user1/_validate/query
 }
 ```
 
+# 八、结构化搜索和全文检索
+
+**结构化搜索**
+
+​	对于结构化文本来说，一个值要么相等，要么不等。没有 *更似* 这种概念。
+
+​	结构化查询不关心文件的相关度或评分；它简单的对文档包括或排除处理。
+
+​    `term`  `terms`
+
+**全文搜索**
+
+​	**相关性（Relevance）** + **分析（Analysis）**
+
 # es查询（各字段解释）
 
 es中的查询请求有两种方式，一种是简易版的查询，另外一种是使用JSON完整的请求体，叫做结构化查询（DSL）。
@@ -586,22 +600,32 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 
 > **匹配字段会进行分词，只要包含分词字段就匹配**
 
-查询和"我的宝马多少马力"这个查询语句匹配的文档。
-
-```
+```json
 {
   "query": {
     "match": {
-        "content" : {
-            "query" : "我的宝马多少马力"
-        }
+        "title":  "cat dog"
     }
   }
 }
-```
 
-上面的查询匹配就会进行分词，比如"宝马多少马力"会被分词为"宝马 多少 马力", 所有有关"宝马 多少 马力", 那么所有包含这三个词中的一个或多个的文档就会被搜索出来。
-并且根据lucene的评分机制(TF/IDF)来进行评分。
+# query： 查询文本
+# operator： 提高精度and or
+# minimum_should_match 控制精度 
+#          数字n：一个文档必须匹配n个分词 
+#          n%：一个文档必须匹配的分词/query分词后长度 >= n%
+# boost：n 在bool查询中n值越大，该查询语句的权重就越高
+{
+    "query": {
+        "match": {
+            "title": {      
+                "query":    "BROWN DOG!",
+                "operator": "and"
+            }
+        }
+    }
+}
+```
 
 ## 2. match_phrase
 
@@ -642,7 +666,12 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 
 > 如果我们希望两个字段进行匹配，其中一个字段有这个文档就满足的话，使用multi_match
 
-```
+```json
+# query 匹配文档
+# fields 匹配的字段
+# type 匹配类型
+# tie_breaker 没有完全匹配文档的评分系数，默认为0，不参与评分
+# minimum_should_match 
 {
   "query": {
     "multi_match": {
@@ -659,13 +688,13 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
 
 > 完全匹配的文档占的评分比较高
 >
->  如：完全匹配"宝马 发动机"的文档评分会比较靠前，如果只匹配宝马的文档评分乘以0.3的系数
 
-```
+```json
+# 完全匹配"宝马 发动机"的文档评分会比较靠前，如果只匹配宝马的文档评分乘以0.3的系数
 {
   "query": {
     "multi_match": {
-      "query": "我的宝马发动机多少",
+      "query": "宝马 发动机",
       "type": "best_fields",
       "fields": [
         "tag",
@@ -674,6 +703,23 @@ DSL查询是POST过去一个json，由于post的请求是json格式的，所以�
       "tie_breaker": 0.3
     }
   }
+}
+
+## dis_max
+# 1个简单的 dis_max 查询会采用单个最佳匹配字段，而忽略其他的匹配：
+		# 文档1 tag：宝马 content：xx 文档2 tag：宝马 content：发动机， 两者评分一致
+
+# `tie_breaker` 这个参数将其他匹配语句的评分也考虑其中
+{
+    "query": {
+        "dis_max": {
+            "queries": [
+                { "match": { "tag": "宝马 发动机" }},
+                { "match": { "content":  "宝马 发动机" }}
+            ]
+            # ,"tie_breaker": 0.3
+        }
+    }
 }
 ```
 
@@ -831,6 +877,73 @@ GET my_index/my_type/_search
 - `filter`*必须* 匹配，但它以不评分、过滤模式来进行。这些语句对评分没有贡献，只是根据过滤标准来排除或包含文档。
 
   ​	结果会被缓存到内存中以便快速读取
+
+### 7.1 filter
+
+#### 7.1.1 filter缓存 
+
+ 1. ***查找匹配文档***.
+
+ 2. ***创建 bitset***.
+
+    过滤器会创建一个 *bitset* （一个包含 0 和 1 的数组），它描述了哪个文档会包含该 term 。
+
+ 3. ***迭代 bitset(s)***
+
+    一旦为每个查询生成了 bitsets ，Elasticsearch 就会循环迭代 bitsets 从而找到满足所有过滤条件的匹配文档的集合。
+
+ 4. ***增量使用计数***.
+
+    Elasticsearch 会为每个索引跟踪保留查询使用的历史状态。如果查询在最近的 256 次查询中会被用到，那么它就会被缓存到内存中。当 bitset 被缓存后，缓存会在那些低于 10,000 个文档（或少于 3% 的总索引数）的段（segment）中被忽略。这些小的段即将会消失，所以为它们分配缓存是一种浪费。
+
+**自动缓存行为**
+
+​	如果一个非评分查询在最近的 256 次查询中被使用过（次数取决于查询类型），那么这个查询就会作为缓存的候选。
+
+​	一旦缓存了，非评分计算的 bitset 会一直驻留在缓存中直到它被剔除。剔除规则是基于 LRU 的：一旦缓存满了，最近最少使用的过滤器会被剔除。
+
+#### 7.1.2 组合filter
+
+```sense
+GET /my_store/_search
+{
+   "query" : {
+      "bool" : { 
+         "filter" : {
+            "bool" : {
+              "should" : [
+                 { "term" : {"price" : 20}}, 
+                 { "term" : {"productID" : "XHDK-A-1293-#fJ3"}} 
+              ],
+              "must_not" : {
+                 "term" : {"price" : 30} 
+              }
+           }
+         }
+      }
+   }
+}
+```
+
+### 7.2 should
+
+```json
+# minimum_should_match 有多少个should应该匹配：数字或者百分比
+{
+  "query": {
+    "bool": {
+      "should": [
+        { "match": { "title": "brown" }},
+        { "match": { "title": "fox"   }},
+        { "match": { "title": "dog"   }}
+      ],
+      "minimum_should_match": 2 
+    }
+  }
+}
+```
+
+ 
 
 ## 8. constant_score
 
