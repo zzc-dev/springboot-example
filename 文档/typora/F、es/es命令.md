@@ -1085,7 +1085,59 @@ https://www.elastic.co/guide/cn/elasticsearch/guide/current/shingles.html
 
 # es聚合
 
-## 1. **terms** 分组聚合
+*桶（Buckets）*
+
+​	满足特定条件的文档的集合
+
+*指标（Metrics）*
+
+​	对桶内的文档进行统计计算
+
+```json
+# 1. text类型是无法聚合统计的，没有优化的字段es默认是禁止聚合/排序操作的。所以需要将要聚合的字段添加优化
+{
+  "properties": {
+    "col54": { 
+      "type":     "text",
+      "fielddata": true # 使text字段添加优化
+    }
+  }
+}
+```
+
+```
+aggs:{
+	"aggs_name":{
+		"terms":{
+			"field": "fieldname【.keyword】",
+			"include":[值列表],
+			"exclude":[值列表],
+			"size": num,
+			"order":{"inner_aggs_name": "desc|asc"}
+		},
+		"range":{
+			"field": "fieldname",
+		     "ranges":{"from": num, "to": num, "key": name}
+		},
+		"date_range":{
+			"field": "fieldname",
+			"ranges":{"from": date, "to": date, "key": name}
+		},
+		"date_histogram":{
+			"field": "birthDay",
+			"format": "yyyy",
+			"interval": "year"
+		}
+		aggs:{}
+	}
+}
+```
+
+
+
+## 1. Bucket
+
+### 1.1 **terms** 分组聚合
 
 按字段分组并降序返回账户数量最多的十条数据
 
@@ -1104,64 +1156,121 @@ GET /bank/_search?pretty
 }
 ```
 
-## 2. **avgs**
+### 1.2 histogram 条形图桶
 
-```
-GET /bank/_search?pretty
+```json
+# 以价格间隔20000为区间分组，每个分组下price相加
+GET /cars/transactions/_search
 {
-  "size": 0,
-  "aggs": {
-    "group_by_state": {
-      "terms": {
-        "field": "state.keyword",
-        "order": {                             通过指定terms聚合内的顺序来使用嵌套聚合的结果进行排序，而不是按计数对结果进行排序
-          "average_balance": "desc"
-        }
-      },
-      "aggs": {
-        "average_balance": {
-          "avg": {
-            "field": "balance"
-          }
-        }
+   "size" : 0,
+   "aggs":{
+      "price":{
+         "histogram":{ 
+            "field": "price",
+            "interval": 20000
+         },
+         "aggs":{
+            "revenue": {
+               "sum": { 
+                 "field" : "price"
+               }
+             }
+         }
       }
-    }
-  }
+   }
 }
 ```
 
-## 3. 筛选分组聚合 include、exclude
+### 1.3 date-histogram 按时间统计
 
-湖⼈和⽕箭队按球队平均年龄进⾏分组排序 (指定值列表)
-
-```
-POST /nba/_search
+```json
+# 每月销售了几台汽车
+	# interval: 时间间隔
+	# format：格式化日期
+	# "min_doc_count" : 0 返回空桶
+    #       "extended_bounds" : {  强制返回整年
+                "min" : "2014-01-01",
+                "max" : "2014-12-31"
+            }
+GET /cars/transactions/_search
 {
-	"aggs": {
-		"aggsTeamName": {
-			"terms": {
-				"field": "teamNameEn",
-				"include": ["Lakers", "Rockets", "Warriors"],  支持正则表达式"include": "Lakers|Ro.*|Warriors.*",
-				"exclude": ["Warriors"],
-				"size": 30,
-				"order": {
-					"avgAge": "desc"
-				}
-			},
-			"aggs": {
-				"avgAge": {
-					"avg": {
-						"field": "age"
-					}
-				}
-			}
-		}
-	},
-	"size": 0
+   "size" : 0,
+   "aggs": {
+      "sales": {
+         "date_histogram": {
+            "field": "sold",
+            "interval": "month", 
+            "format": "yyyy-MM-dd" 
+         }
+      }
+   }
 }
 ```
 
-## 4. Range/Date_Range Aggregation 范围分组聚合
+### 1.4 全局桶
+
+```json
+# 福特汽车与 所有 汽车平均售价的比较
+# single_avg_price 度量计算是基于查询范围内所有文档，即所有 福特 汽车
+# avg_price 度量是嵌套在  全局 桶下的，这意味着它完全忽略了范围并对所有文档进行计算
+{
+    "size" : 0,
+    "query" : {
+        "match" : {
+            "make" : "ford"
+        }
+    },
+    "aggs" : {
+        "single_avg_price": {
+            "avg" : { "field" : "price" } 
+        },
+        "all": {
+            "global" : {}, # global 全局桶没有参数。avg_price聚合操作针对所有文档，忽略汽车品牌
+            "aggs" : {
+                "avg_price": {
+                    "avg" : { "field" : "price" } 
+                }
+
+            }
+        }
+    }
+}
+```
+
+### 1.5 过滤桶
+
+ **对聚合后的结果进行过滤**
+
+```sense
+{
+   "size" : 0,
+   "query":{
+      "match": {
+         "make": "ford"
+      }
+   },
+   "aggs":{
+      "recent_sales": {
+         "filter": { 
+            "range": {
+               "sold": {
+                  "from": "now-1M"
+               }
+            }
+         },
+         "aggs": {
+            "average_price":{
+               "avg": {
+                  "field": "price" 
+               }
+            }
+         }
+      }
+   }
+}
+```
+
+### 1.6 Range/Date_Range Aggregation 范围分组聚合
 
 NBA球员年龄按20,20-35,35这样分组
 
@@ -1193,20 +1302,78 @@ POST /nba/_search
 }
 ```
 
-## 5. Date Histogram Aggregation 时间柱状图聚合
+## 2. Metrics
 
-- 按天、⽉、年等进⾏聚合统计。可按 year (1y), quarter (1q), month (1M), week (1w), day(1d), hour (1h), minute (1m), second (1s) 间隔聚合
-- NBA球员按出⽣年分组
+### 2.1  **avgs**
+
+```
+GET /bank/_search?pretty
+{
+  "size": 0,
+  "aggs": {
+    "group_by_state": {
+      "terms": {
+        "field": "state.keyword",
+        "order": {                             通过指定terms聚合内的顺序来使用嵌套聚合的结果进行排序，而不是按计数对结果进行排序
+          "average_balance": "desc"
+        }
+      },
+      "aggs": {
+        "average_balance": {
+          "avg": {
+            "field": "balance"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 2.2 extended_stats
+
+可以对聚合的结果进行更近一步的分析 ，常见的 count sum avg min max 等都可以一目了然
+
+```
+             "stats": {
+23             "count": 3,
+24             "min": 10000,
+25             "max": 20000,
+26             "avg": 16666.666666666668,
+27             "sum": 50000,
+28             "sum_of_squares": 900000000,
+29             "variance": 22222222.22222221,
+30             "std_deviation": 4714.045207910315,
+31             "std_deviation_bounds": {
+32               "upper": 26094.757082487296,
+33               "lower": 7238.5762508460375
+34             }
+```
+
+### 2.3 筛选分组聚合 include、exclude
+
+湖⼈和⽕箭队按球队平均年龄进⾏分组排序 (指定值列表)
 
 ```
 POST /nba/_search
 {
 	"aggs": {
-		"birthday_aggs": {
-			"date_histogram": {
-				"field": "birthDay",
-				"format": "yyyy",
-				"interval": "year"
+		"aggsTeamName": {
+			"terms": {
+				"field": "teamNameEn",
+				"include": ["Lakers", "Rockets", "Warriors"],  支持正则表达式"include": "Lakers|Ro.*|Warriors.*",
+				"exclude": ["Warriors"],
+				"size": 30,
+				"order": {
+					"avgAge": "desc"
+				}
+			},
+			"aggs": {
+				"avgAge": {
+					"avg": {
+						"field": "age"
+					}
+				}
 			}
 		}
 	},
@@ -1214,57 +1381,228 @@ POST /nba/_search
 }
 ```
 
+## 3. post_filter
 
+对搜索结果进行过滤
 
-```
-aggs:{
-	"aggs_name":{
-		"terms":{
-			"field": "fieldname【.keyword】",
-			"include":[值列表],
-			"exclude":[值列表],
-			"size": num,
-			"order":{"inner_aggs_name": "desc|asc"}
-		},
-		"range":{
-			"field": "fieldname",
-		     "ranges":{"from": num, "to": num, "key": name}
-		},
-		"date_range":{
-			"field": "fieldname",
-			"ranges":{"from": date, "to": date, "key": name}
-		},
-		"date_histogram":{
-			"field": "birthDay",
-			"format": "yyyy",
-			"interval": "year"
-		}
-		aggs:{}
-	}
-}
-
-```
-
-
-
-聚合值过滤
-
-```
+```json
+# 高版本已过期
 {
-    "size": 0,
-    "aggs": {
-        "terms": {
-            "terms": {
-                "field": "mustTags",
-                "include": ".*总则.*",
-                "size": 999
+    "size" : 0,
+    "query": {
+        "match": {
+            "make": "ford"
+        }
+    },
+    "post_filter": {    
+        "term" : {
+            "color" : "green"
+        }
+    },
+    "aggs" : {
+        "all_colors": {
+            "terms" : { "field" : "color" }
+        }
+    }
+}
+```
+
+## 4. 排序
+
+### 4.1 内置排序
+
+>聚合结果默认按`doc_count`降序排序
+
+- `_count`	按文档数排序。对 `terms` 、 `histogram` 、 `date_histogram` 有效。
+- ` _term`      按词项的字符串值的字母顺序排序。只在 `terms` 内使用。
+- ` _key`        按每个桶的键值数值排序（理论上与 _term 类似）。 只在 `histogram` 和 date_histogram` 内使用。
+
+```json
+
+{
+    "size" : 0,
+    "aggs" : {
+        "colors" : {
+            "terms" : {
+              "field" : "color",
+              "order": {
+                "_count" : "asc" 
+              }
             }
         }
     }
 }
 ```
 
+### 4.2 按指标排序
 
+```json
+{
+    "size" : 0,
+    "aggs" : {
+        "colors" : {
+            "terms" : {
+              "field" : "color",
+              "order": {
+                "avg_price" : "asc" 
+                # extended_stats返回多值可以使用关键词排序： stats.variance 
+              }
+            },
+            "aggs": {
+                "avg_price": {
+                    "avg": {"field": "price"} 
+                }
+            }
+        }
+    }
+}
+```
+
+### 4.3 基于深度指标排序
+
+只作用于单值桶：`filter` `global` `reverse_nested`
+
+```sense
+GET /cars/transactions/_search
+{
+    "size" : 0,
+    "aggs" : {
+        "colors" : {
+            "histogram" : {
+              "field" : "price",
+              "interval": 20000,
+              "order": {
+                "red_green_cars>stats.variance" : "asc" 
+              }
+            },
+            "aggs": {
+                "red_green_cars": {
+                    "filter": { "terms": {"color": ["red", "green"]}}, 
+                    "aggs": {
+                        "stats": {"extended_stats": {"field" : "price"}} 
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+## 5. 近似聚合
+
+**精确 + 实时**
+
+数据可以存入单台机器的内存之中，我们可以随心所欲，使用任何想用的算法。结果会 100% 精确，响应会相对快速。
+
+**大数据 + 精确**
+
+传统的 Hadoop。可以处理 PB 级的数据并且为我们提供精确的答案，但它可能需要几周的时间才能为我们提供这个答案。
+
+**大数据 + 实时**
+
+近似算法为我们提供准确但不精确的结果。 es采用
+
+### 5.1 去重 cardinality
+
+```json
+# precision_threshold控制精度
+  #  接受 0–40,000 之间的数字，更大的值还是会被当作 40,000 来处理
+示例会确保当字段唯一值在 100 以内时会得到非常准确的结果。尽管算法是无法保证这点的，但如果基数在阈值以下，几乎总是 100% 正确的。高于阈值的基数会开始节省内存而牺牲准确度，同时也会对度量结果带入误差。
+GET /cars/transactions/_search
+{
+    "size" : 0,
+    "aggs" : {
+        "distinct_colors" : {
+            "cardinality" : {
+              "field" : "color"，
+              "precision_threshold" : 100 
+            }
+        }
+    }
+}
+```
+
+### 5.2 百分比
+
+**percentiles**
+
+```json
+# 默认返回百分位数值 [1, 5, 25, 50, 75, 95, 99] 
+GET /website/logs/_search
+{
+    "size" : 0,
+    "aggs" : {
+        "load_times" : {
+            "percentiles" : {
+                "field" : "latency" ,
+                "percents" : [50, 95.0, 99.0] # 自己指定返回百分位数值
+            }
+        }
+    }
+}
+```
+
+ **percentile_ranks**
+
+```json
+#  返回的是 分组统计结果在210和800的百分比
+#  compression  控制内存与准确度之间的比值。
+#     节点越多，准确度越高（同时内存消耗也越大），这都与数据量成正比。
+        compression 参数限制节点的最大数目为 20 * compression 。
+{
+    "size" : 0,
+    "aggs" : {
+        "zones" : {
+            "terms" : {
+                "field" : "zone"
+            },
+            "aggs" : {
+                "load_times" : {
+                    "percentile_ranks" : {
+                      "field" : "latency",
+                      "values" : [210, 800],
+                       "compression ": 2
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+- 百分位的准确度与百分位的 *极端程度* 相关，也就是说 1 或 99 的百分位要比 50 百分位要准确。这只是数据结构内部机制的一种特性，但这是一个好的特性，因为多数人只关心极端的百分位。
+- 对于数值集合较小的情况，百分位非常准确。如果数据集足够小，百分位可能 100% 精确。
+- 随着桶里数值的增长，算法会开始对百分位进行估算。它能有效在准确度和内存节省之间做出权衡。 不准确的程度比较难以总结，因为它依赖于 聚合时数据的分布以及数据量的大小。
+
+## 6. 举例
+
+### 6.1 先按颜色分组取每个颜色的平均价格，然后对每个颜色下的品牌分组，求每个品牌的最低和最高价格
+
+```sense
+{
+   "size" : 0,
+   "aggs": {
+      "colors": {
+         "terms": {
+            "field": "color"
+         },
+         "aggs": {
+            "avg_price": { "avg": { "field": "price" }
+            },
+            "make" : {
+                "terms" : {
+                    "field" : "make"
+                },
+                "aggs" : { 
+                    "min_price" : { "min": { "field": "price"} }, 
+                    "max_price" : { "max": { "field": "price"} } 
+                }
+            }
+         }
+      }
+   }
+}
+```
 
 
 
