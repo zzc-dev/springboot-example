@@ -314,6 +314,17 @@ PUT /blogs
 }
 ```
 
+## 3.2 开启或者关闭自动创建索引
+
+```
+PUT _cluster/settings
+{
+    "persistent": {
+        "action.auto_create_index": "false" 
+    }
+}
+```
+
 # 四、mapping
 
 ## 4.1 创建

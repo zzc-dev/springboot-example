@@ -469,6 +469,200 @@ POST /logstash-2014-10/_optimize?max_num_segments=1
 
 请注意，使用 `optimize` API 触发段合并的操作不会受到任何资源上的限制。这可能会消耗掉你节点上全部的I/O资源, 使其没有余裕来处理搜索请求，从而有可能使集群失去响应。 如果你想要对索引执行 `optimize`，你需要先使用分片分配把索引移到一个安全的节点，再执行。
 
+### 3.8 集群管理
+
+#### 3.8.1 集群状态
+
+```json
+# 查看集群的健康状况
+GET _cluster/health
+
+# 获取每个索引的细节（状态，分片数，未分片分片数）
+GET _cluster/health?level=indices
+
+# 阻塞等待状态变化
+GET _cluster/health?wait_for_status=green
+```
+
+  ```json
+# 监控单个节点
+# https://www.elastic.co/guide/cn/elasticsearch/guide/current/_monitoring_individual_nodes.html
+GET _nodes/stats
+  # 索引部分
+  # 操作系统和进程部分
+  # JVM部分
+  # 线程池部分
+	  "index": {
+     	"threads": 1,
+     	"queue": 0,
+     	"active": 0,
+     	"rejected": 0,
+     	"largest": 1,
+     	"completed": 1
+  	 }
+		如果队列中任务单元数达到了极限，新的任务单元会开始被拒绝，你会在 rejected 统计值上看到它反映出来。这通常是你的集群在某些资源上碰到瓶颈的信号。因为		队列满意味着你的节点或集群在用最高速度运行，但依然跟不上工作的蜂拥而入。
+  # 文件系统和网络部分
+  # 断路器
+
+# 集群统计 类似于节点统计，区别是对于单个指标，展示的是所有节点的总和
+get _cluster/stats
+
+# 索引统计
+get my_index/_stats
+
+# cat api
+GET /_cat #获取所有可用的cat命令
+  ```
+
+**等待中的任务**
+
+```js
+GET _cluster/pending_tasks
+```
+
+主节点很少会成为集群的瓶颈。唯一可能成为瓶颈的是集群状态非常大 *而且* 更新频繁。
+
+解决方案：
+
+- 使用一个更强大的主节点。不幸的是，这种垂直扩展只是延迟这种必然结果出现而已。
+- 通过某些方式限定文档的动态性质来限制集群状态的大小。
+- 到达某个阈值后组建另外一个集群
+
+#### 3.8.2 防止脑裂
+
+>*脑裂* ，一种两个主节点同时存在于一个集群的现象
+
+```yaml
+# 等有2个master候选节点时再选取主节点
+# 一般设置 master候选节点/2 + 1 半数机制 
+discovery.zen.minimum_master_nodes: 2 
+```
+
+上面是集群的配置文件，当集群中master候选节点动态变动时，你不得不修改每一个索引节点的配置并且重启你的整个集群只是为了让配置生效。
+
+```js
+# 动态修改
+PUT /_cluster/settings
+{
+    "persistent" : {
+        "discovery.zen.minimum_master_nodes" : 2
+    }
+}
+```
+
+#### 3.8.3 集群恢复方面的配置
+
+**集群恢复**
+
+​	假设有10个节点，有10分片（5主1副本）均匀地分配在每个节点
+
+	1. 有5个节点意外断开，或者当你重启你的集群，恰巧出现了 5 个节点已经启动，还有 5 个还没启动的场景。
+ 	2. 另外5个节点相互通信，选取出一个master，然后启动**分片复制**
+ 	3. 过会另外5个节点加入集群，发现他们的数据正在复制到其他节点，需要删除本地的分片数据（多余或者过时了）。
+ 	4. 整个集群又重新平衡，分配分片。
+
+在整个过程中，你的节点会消耗磁盘和网络带宽，来回移动数据，因为没有更好的办法。对于有 TB 数据的大集群, 这种无用的数据传输需要 *很长时间* 。如果等待所有的节点重启好了，整个集群再上线，所有的本地的数据都不需要移动。
+
+**解决**
+
+```yaml
+# config/elasticsearch.yml 不能动态变更
+gateway.recover_after_nodes: 8
+gateway.expected_nodes: 10
+gateway.recover_after_time: 5m
+
+触发集群恢复
+# 1. 集群中至少需要recover_after_nodes个节点
+# 2. 集群中有expected_nodes个节点或者等待recover_after_time时间
+```
+
+#### 3.8.4 堆内存
+
+>不要触碰这些配置！
+>
+>​	1. 垃圾回收器
+>
+>​    2. 线程池
+
+```bash
+# Elasticsearch 默认安装后设置的堆内存是 1 GB
+# 这里有两种方式修改 Elasticsearch 的堆内存。
+export ES_HEAP_SIZE=10g
+./bin/elasticsearch -Xmx10g -Xms10g 
+```
+
+**把内存的一半给Lucene**
+
+​		标准的建议是把 50％ 的可用内存作为 Elasticsearch 的堆内存，保留剩下的 50％。当然它也不会被浪费，Lucene 会很乐意利用起余下的内存
+
+**不要超过32GB**
+
+​    小于32GB时，Java 使用一个叫作 [内存指针压缩（compressed oops）](https://wikis.oracle.com/display/HotSpotInternals/CompressedOops)的技术。
+
+**关闭swap**
+
+#### 3.8.5 推迟分片分配
+
+1. Node（节点） 19 在网络中失联了（某个家伙踢到了电源线)
+2. Master 立即注意到了这个节点的离线，它决定在集群内提拔其他拥有 Node 19 上面的主分片对应的副本分片为主分片
+3. 在副本被提拔为主分片以后，master 节点开始执行恢复操作来**重建缺失的副本**。集群中的节点之间互相拷贝分片数据，网卡压力剧增，集群状态尝试变绿。
+4. 由于目前集群处于非平衡状态，这个过程还有可能会触发小规模的分片移动。其他不相关的分片将在节点间迁移来达到一个最佳的平衡状态
+
+```js
+# 默认情况，集群会等待一分钟来查看节点是否会重新加入，如果这个节点在此期间重新加入，重新加入的节点会保持其现有的分片数据，不会触发新的分片分配。
+# 延迟分配不会阻止副本被【提拔为主分片】。集群还是会进行必要的提拔来让集群回到 yellow 状态。【缺失副本的重建】是唯一被延迟的过程。
+PUT /_all/_settings 
+{
+  "settings": {
+    "index.unassigned.node_left.delayed_timeout": "5m" 
+  }
+}
+```
+
+**自动取消分片迁移**
+
+​	如果节点在超时后回来，且集群还没有完成分片的移动。
+
+​    es检查主分片的数据和回来的节点的数据一致：
+
+​                一致，master取消正在进行的再平衡并恢复该机器磁盘上的数据（之所以这样做是因为**本地磁盘的恢复永远要比网络间传输要快**）
+
+​                不一致。恢复进程会继续按照正常流程进行。重新加入的节点会删除本地的、过时的数据，然后重新获取一份新的。
+
+#### 3.8.6 滚动升级
+
+常见的原因：Elasticsearch 版本升级，或者服务器自身的一些维护操作（比如操作系统升级或者硬件相关）。不管哪种情况，都要有一种特别的方法来完成一次滚动重启。
+
+1. 可能的话**，停止索引新的数据**。虽然不是每次都能真的做到，但是这一步可以帮助提高恢复速度。
+
+2. **禁止分片分配**。这一步阻止 Elasticsearch 再平衡缺失的分片，直到你告诉它可以进行了。
+
+   ```js
+   PUT /_cluster/settings
+   {
+       "transient" : {
+           "cluster.routing.allocation.enable" : "none"
+       }
+   }
+   ```
+
+3. 关闭单个节点。
+
+4. 执行维护/升级。
+
+5. 重启节点，然后确认它加入到集群了。
+
+6. 重启分片分配：
+
+   ```js
+   PUT /_cluster/settings
+   {
+       "transient" : {
+           "cluster.routing.allocation.enable" : "all"
+       }
+   }
+   ```
+
 ## 4. 索引
 
 必须小写，不能以下划线开头，不能包含逗号
@@ -1098,38 +1292,11 @@ Doc_3 | dog, dogs, fox, jumped, over, quick, the
 
 ## 1. 索引API
 
-```console
-PUT _cluster/settings
-{
-    "persistent": {
-        "action.auto_create_index": "twitter,index10,-index1*,+ind*" 
-    }
-}
-
-PUT _cluster/settings
-{
-    "persistent": {
-        "action.auto_create_index": "false" 
-    }
-}
-
-PUT _cluster/settings
-{
-    "persistent": {
-        "action.auto_create_index": "true" 
-    }
-}
-```
-
 `write.wait_for_active_shards`: 索引请求返回前需要等待多少个分片写入成功，默认是1，只要主分片写入成功就返回
 
 `index.refresh_interval`  索引数据提交到刷新成新段的间隔，默认是一秒
 
-`refresh`
 
-- false  每一秒刷新一次即最长需要等待一秒才可见，其实是一秒生成了一个新段，这是默认值，这样做的目的是避免生成过多的段，增加合并的成本，这个是异步方式
-- true 写入请求同时刷新数据到新段，刷新是请求执行的一部分，所以只要请求返回数据立即可见，会增加CPU开销，这个可以实现同步写入
-- wait_for 这种方式可以理解为折衷的方式，写入请求阻塞到数据刷新动作的发生，写入请求最长需等待一秒，这个也实现了同步写入
 
 ## 2. get api
 
@@ -1139,14 +1306,6 @@ PUT _cluster/settings
 
 ```console
 禁用 realtime: false
-```
-
-**source filter**
-
-```
-GET twitter/_doc/0?_source=false
-GET twitter/_doc/0?_source_includes=*.id&_source_excludes=entities
-GET twitter/_doc/0?_source=*.id,retweeted
 ```
 
 **分散式**
@@ -1159,25 +1318,7 @@ GET twitter/_doc/0?_source=*.id,retweeted
 
 ​             Custom(string) value : 确保相同的副本处理相同的自定义值       
 
-在内部，Elasticsearch将旧文档标记为已删除，并添加了一个全新的文档。旧版本的文档不会立即消失，尽管您将无法访问它。当您继续索引更多数据时，Elasticsearch会在后台清理已删除的文档。
 
-## 3. delete api
-
-**乐观并发控制**
-
-删除操作可以是有条件的，并且只有在对文档的最后修改被分配了由`if_seq_no`和`if_primary_term`参数指定的序号和主要术语的情况下才能执行。如果检测到不匹配，则该操作将产生`VersionConflictException` 和状态码409。有关更多详细信息，请参见[*乐观并发控制*](https://www.elastic.co/guide/en/elasticsearch/reference/7.0/optimistic-concurrency-control.html)。
-
-**版本控制**
-
-索引的每个文档都经过版本控制。删除文档时，`version`可以指定，以确保我们要删除的相关文档实际上已被删除，同时它也没有更改。在文档上执行的每个写操作（包括删除操作）都会导致其版本增加。删除后的文档版本号在短时间内仍然可用，以便控制并发操作。删除的文档版本保持可用状态的时间长度由`index.gc_deletes`索引设置确定，默认为60秒
-
-**超时**
-
-当执行删除操作时，分配给执行删除操作的主分片可能不可用。造成这种情况的某些原因可能是主分片当前正在从存储中恢复或正在进行重定位。默认情况下，删除操作将等待主碎片最多可用1分钟，然后失败并响应错误。该`timeout`参数可用于显式指定其等待时间。这是将其设置为5分钟的示例：
-
-```console
-DELETE /twitter/_doc/1?timeout=5m
-```
 
 ## 4. delete by query
 
