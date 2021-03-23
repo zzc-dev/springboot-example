@@ -6,3 +6,4 @@
 **/.mvn/
 .iml
 *.iml
+*.class

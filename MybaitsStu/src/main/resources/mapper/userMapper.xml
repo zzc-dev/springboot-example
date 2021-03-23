@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzc.dao.UserMapper">
+
+    <resultMap id="UserMap" type="User">
+        <result column="username" property="username" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <cache type="PERPETUAL" eviction="LRU" flushInterval="60000"
+           size="512" readOnly="true" />
+
+    <select id="getUserByUid" resultMap="UserMap">
+        select * from user where uid = #{uid}
+    </select>
+</mapper>

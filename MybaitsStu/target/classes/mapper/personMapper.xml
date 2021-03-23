@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzc.entity.PersonMapper">
+
+    <select id="selectPersonById"
+            resultType="com.zzc.entity.Person" parameterType="int">
+        select * from person where pid = #{pid}
+    </select>
+
+    <select id="getAllPerson" resultType="com.zzc.entity.Person">
+    select * from person
+  </select>
+
+    <!-- 根据id更新数据 -->
+    <update id="updatePersonById" parameterType="com.zzc.entity.Person">
+    update person set pname=#{pname},page=#{page} where pid = #{pid}
+  </update>
+
+    <!-- 向 person 表插入一条数据 -->
+    <insert id="addPerson" parameterType="com.zzc.entity.Person">
+    insert into person(pid,pname,page) values(#{pid},#{pname},#{page})
+  </insert>
+
+    <!-- 根据 pid 删除数据 -->
+    <delete id="deletePersonById" parameterType="Long">
+    delete from person where pid=#{pid}
+  </delete>
+
+</mapper>
