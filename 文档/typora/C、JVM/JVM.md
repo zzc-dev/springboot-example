@@ -43,8 +43,11 @@ javap -v  Test.class // Test的字节码文件
 
 ​	构造器方法中的指令按语句在源文件中出现的顺序执行。
 
+**常量在编译时就已经初始化了**
+
 ```java
 public class Test{
+    private final static int age = 20;
     static {
         num = 20
     }
@@ -359,8 +362,6 @@ public void test2(){
  但实际上比例并非如此，jvm有个自适应的内存分配策略-XX:-UseAdaptiveSizePolicy,除非显示设置-XX:SurvivorRatio=8，比例才会如我们想的那样
 ```
 
-
-
 **查看参数设置**
 
 ```
@@ -370,6 +371,164 @@ public void test2(){
 方式2：
 	-XX:+PrintGCDetails
 ```
+
+### 3.4.2 对象分配
+
+​    伊甸园区满：将伊甸园区和from区一起触发YGC
+
+​	from区满时，将对象直接放入老年代
+
+![image-20210329190708147](D:\myself\springboot-example\文档\typora\images\jvm18.png)
+
+### 3.4.3 TLAB
+
+避免多个线程操作同一地址，需要使用加锁机制，影响分配速度
+
+![image-20210329201259044](D:\myself\springboot-example\文档\typora\images\jvm20.png)
+
+![image-20210329201339483](D:\myself\springboot-example\文档\typora\images\jvm21.png)
+
+### 3.4.4 逃逸分析
+
+#### 3.4.4.1 栈上分配
+
+**堆是分配对象存储的唯一选择吗？**
+
+​	不是，还可以在栈上分配对象
+
+>**如果经过逃逸分析后，该对象并没有逃逸出方法的话，那么就可能被优化成栈上分配**
+>
+>通俗来说，就是看一个对象能否在方法外部被使用
+
+```java
+// a并没有逃出方法test1，分配在栈上
+// b通过getB得到，在其他方法，很有可能改变了b值，所以发生了逃逸，b对象分配在堆上
+public void test1(){
+    A a = new A();
+    B b = getB();
+}
+
+B b;
+public B getB(){
+    return b;
+}
+```
+
+#### 3.4.4.2 同步省略
+
+> 如果一个对象被发现只能从一个线程被访问，那么对于这个对象的操作可以不考虑同步
+
+```java
+public void test(){
+    Object o = new Object();
+    synchronized(o){
+        int i=0;
+    }
+}
+
+//经过逃逸分析 o变量不会只能被当前线程方法，代码优化：
+public void test(){
+    Object o = new Object();
+    int i = 0;
+}
+```
+
+#### 3.4.4.3 标量替换
+
+标量Scalar：无法被分解成更小的数据的数据。Java八大原始类型
+
+聚合量Aggregate：可以被分解的数据。Java对象
+
+>标量替换：
+>
+>​	在JIT阶段，经过逃逸分析，发现一个对象不会被外界访问，讲过JIT优化，会把这个对象拆分成若干个成员变量。
+>
+> 这位栈上分配提供了基础
+
+```java
+public void test(){
+    User u = new User;
+    u.name = "zzc";
+    u.age = 24;
+}
+
+// 经过变量替换
+public void test(){
+    String uName = "zzc";
+    int uAge = 24;
+}
+```
+
+#### 3.4.4.4 总结
+
+![image-20210329211352370](D:\myself\springboot-example\文档\typora\images\jvm22.png)
+
+## 3.5 方法区
+
+默认JVM为HotSpot JVM
+
+方法区逻辑上属于堆的一部分，但对于HotSpotJVM而言，方法区还有一个别名：Non-Heap非堆，目的就是要和堆分开
+
+### 3.5.1 基本理解
+
+- 线程共享的内存区域
+- 方法区在JVM启动时被创建，物理内存空间可以不连续，关闭JVM释放整个内存
+- 大小可以固定也可以动态扩展
+- 方法区的大小决定了系统可以保存多少个类信息，方法区逸出：OOM：PermGen space | Metasapce
+
+### 3.5.2 演进过程
+
+jdk 7： 永久代
+
+jdk 8：**元空间，不在虚拟机设置的内存中，直接使用本地内存**
+
+### 3.5.3 参数
+
+jdk7
+
+```java
+-XX:PermSize       // 永久代初始大小，默认20.75M
+-XX:MaxPermSize    // 最大空间：32位机器默认64M；64位默认82M
+```
+
+jdk8
+
+```java
+-XX:MetaspaceSize    // windows 默认21M
+-XX:MaxMetaspaceSize // windows 默认-1，没有限制
+```
+
+注意：**MetasapceSize的设置**
+
+​	初始高水位线：21M。一旦触及这个水位线，Full GC触发并卸载没有的类，然后高水位线被重置。
+
+新的高水位线的值取决于被释放元空间的大小。如果释放的元空间不足，适当提高该值；如果释放过多，则适当降低该值。
+
+​	**如果初始值设置过低，上述调整会多次放生，频繁调用Full GC。因设置一个相对较高的值。**
+
+### 3.5.4 方法区的内部结构
+
+类型信息、常量、静态变量、即时编译器编译后的代码缓存等
+
+#### 3.5.4.1 类型信息
+
+- 类型的完整有效名称：全名=包名.类名
+- 直接父类的完整有效名
+- 类型修饰符：public abstract final
+- 实现的直接接口的有序列表
+
+#### 3.5.4.2 域（Field）信息
+
+​	域名称、类型、修饰符
+
+#### 3.5.4.3 方法（Method）信息
+
+- 方法名称
+- 返回类型
+- 方法参数数量和类型（按顺序）
+- 方法修饰符
+- 方法的字节码（bytecodes）、操作数栈、局部变量表及大小
+- 异常表
 
 # 四、本地方法接口（Native Interface）
 
@@ -381,7 +540,86 @@ public void test2(){
 
 ​	Socket通信、RestFul接口
 
+# 五、垃圾回收
 
+<strong style="color:red">垃圾回收期间会触发STW（Stop The World），挂起用户线程</strong>
+
+```java
+-XX:MaxTenuringThreshold   // 对象从幸存者区晋升到老年代的年龄阈值
+```
+
+## 5.1 Minor GC、Major GC、Full GC
+
+JVM在进行GC时，并非对整个堆一起回收，大部分是指对新生代的回收
+
+- 部分收集（Partial GC）
+  - Minor/Young GC : 新生代的回收
+  - Major/Old GC：老年代的回收
+    - 目前，只有 CMS GC会有单独收集老年代的行为
+  - Mixed GC 混合收集 ： 收集整个新生代以及部分老年代
+    - 目前，只有G1 GC会有这种行为
+
+- 整堆收集（Full GC）： 收集整个java堆和方法区的垃圾回收
+
+**Major、Full GC 一般会比Minor GC慢10倍以上**
+
+**触发 Full GC 的条件**
+
+1. System.gc(); 系统建议但不必然执行
+2. 老年代空间不足
+   - 通过Minor GC 后进入老年代的大小 > 老年代可用内存
+   - S0、S1区满，进入老年代的大小 > 老年代可用内存
+3. 方法区空间不足	
+
+## 5.2 内存分配策略
+
+![image-20210329195139645](D:\myself\springboot-example\文档\typora\images\jvm19.png)
+
+- 优先分配到Eden区
+
+- 大对象直接分配到老年代
+
+- 长期存活的对象分配到老年代
+
+- 动态对象年龄判断
+
+  如果相同年龄的对象所占空间的综合 > Survivor空间的一半，年龄>=该年龄的对象可以直接进入老年代，无需等待年龄阈值
+
+- 空间分配担保
+
+  `-XX:HandlePromotionFailure`
+
+## 5.3 参数
+
+```java
+-XX:+PrintFlagsInitial  // 查看所有参数的默认初始值
+-XX:+PrintFlagsFinal    // 查看所有参数的最终值
+-Xms                    // 初始堆内存 默认物理内存/64
+-Xmx                    // 最大堆内存 默认物理内存/4
+-Xmn                    // 新生代大小
+-XX:NewRatio            // 新生代和老年代的比例
+-XX:SurvivorRatio       // Eden和S0/S1的比例
+-XX:MaxTenuringThresold // 新生代垃圾的最大年龄
+-XX:PrintGCDetails      // 输出详细的GC日志
+-XX:HandlePromotionFailure // 是否设置空间分配担保
+-XX:+DoEscapeAnalysis   //启用逃逸分析，默认开启
+-XX:+EliminateAllocations  // 启用标量替换，默认开启    
+```
+
+**HandlePromotionFailure**
+
+​	jdk7以及之后：**在Minor GC之前，只要老年代的连续内存空间 > 新生代对象总大小|历次晋升的平均大小：Minor GC，否则Full GC**
+
+# 六、常用调优工具
+
+- JDK命令行
+- Eclipse：Memory Analyzer Tool
+- Jconsole
+- VisualVM
+- Jprofiler
+- Java Flight Recorder
+- GCViewer
+- GC Easy
 
 
 
@@ -398,8 +636,6 @@ public void test2(){
 ## 5. Method Area
 
 又叫静态区，存放所有的①类（class），②静态变量（static变量），③静态方法，④常量和⑤成员方法(就是普通方法，由访问修饰符，返回值类型，类名和方法体组成)。
-
-
 
 ## **7.Heap
 
