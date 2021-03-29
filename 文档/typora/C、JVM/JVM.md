@@ -335,7 +335,41 @@ public void test2(){
 
 ## 3.4 堆
 
+**堆可以处于物理上不连续的内存空间，但在逻辑上连续的。**
 
+堆中线程私有的缓冲区 TLAB （Thread Local Allocation Buffer）
+
+### 3.4.1 参数
+
+-Xms和-Xmx通常设置一样的值，目的是为了能够**在垃圾回收机制清理完堆区后不需要重新分隔计算堆区的大小，提高性能**
+
+```shell
+-Xms 堆的起始内存，等价于 -XX:InitialHeapSize  默认值：电脑内存大小 / 64
+-Xmx 堆的最大内存，等价于 -XX:MaxHeapSize      默认值：电脑内存大小 / 4
+```
+
+**新生代和老年代比例：**
+
+```shell
+-XX:NewRatio=2 默认2，表示新生代:老年代=1:2
+-Xmn 新生代的大小
+
+新生代 = Eden + S0 +S1 默认比例：8:1:1
+ -XX:SurvivorRatio=8
+ 但实际上比例并非如此，jvm有个自适应的内存分配策略-XX:-UseAdaptiveSizePolicy,除非显示设置-XX:SurvivorRatio=8，比例才会如我们想的那样
+```
+
+
+
+**查看参数设置**
+
+```
+方式1：
+    jps
+    jstat -gc 进程PID
+方式2：
+	-XX:+PrintGCDetails
+```
 
 # 四、本地方法接口（Native Interface）
 
