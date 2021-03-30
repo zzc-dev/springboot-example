@@ -482,6 +482,44 @@ jdk 7： 永久代
 
 jdk 8：**元空间，不在虚拟机设置的内存中，直接使用本地内存**
 
+|        | 永久代         | 堆                     | 元空间                     |
+| ------ | -------------- | ---------------------- | -------------------------- |
+| jdk1.6 | 静态变量       |                        | ----------------           |
+| jdk1.7 | 逐步去除永久代 | 字符串常量池、静态变量 | ----------------           |
+| jdk1.8 | ----------     | 字符串常量池、静态变量 | 类型信息、字段、方法、常量 |
+
+**永久代为什么会被元空间替换**
+
+	1. 永久代大小很难确定
+ 	2. 永久代调优困难
+
+**StringTable 为什么要调整**
+
+​	jdk7中将StringTable放到了堆空间中。因为永久代的回收效率很低，在full gc的时候才会触发。而full GC 是老年代的空间不足、永久代不足时才会触发。这就导致了StringTable回收效率不高。而我们开发中会有大量的字符串被创建，回收效率低，导致永久代内存不足。放到堆里，能及时回收内存.
+
+**静态变量存放位置**
+
+​	所有的对象都存放在堆上
+
+​	静态变量staticObjcet本身也存放在堆上
+
+​	成员变量instanceObject作为类对象的一部分也存放在堆上
+
+​    局部变量localObject在入栈时存放在局部变量表
+
+```java
+public class Test{
+    static Object staticObject = new Object();
+    Object instanceObject = new Object();
+    
+    void test(){
+        Object localObject = new Object();
+    }
+}
+```
+
+
+
 ### 3.5.3 参数
 
 jdk7
@@ -529,6 +567,22 @@ jdk8
 - 方法修饰符
 - 方法的字节码（bytecodes）、操作数栈、局部变量表及大小
 - 异常表
+
+### 3.5.5 常量池与运行时常量池
+
+​	字节码内部包含了常量池，经过加载、链接、初始化后进入内存，JVM读取后将其加入运行时常量池
+
+- 运行时常量池（ Runtime Constant Pool）是方法区的一部分。
+- 常量池表（Constant Pool Table）是Class文件的一部分，==用于存放编译期生成的各种字面量与符号引用==，这部分内容将在类加载后存放到方法区的运行时常量池中。
+- 运行时常量池，在加载类和接口到虚拟机后，就会创建对应的运行时常量池。
+- JVM为每个已加载的类型（类或接口）都维护一个常量池。池中的数据项像数组项一样，是通过索引访问的。
+- 运行时常量池中包含多种不同的常量，包括编译期就已经明确的数值字面量，也包括到运行期解析后才能够获得的方法或者字段引用。此时不再是常量池中的符号地址了，这里换为真实地址。
+
+- 运行时常量池，相对于Class文件常量池的另一重要特征是：==具备动态性==。
+  - String.intern()
+
+- 运行时常量池类似于传统编程语言中的符号表（symbol table） ，但是它所包含的数据却比符号表要更加丰富一些。
+- 当创建类或接口的运行时常量池时，如果构造运行时常量池所需的内存空间超过了方法区所能提供的最大值，则JVM会抛OutOfMemoryError异常。
 
 # 四、本地方法接口（Native Interface）
 
@@ -603,18 +657,22 @@ JVM在进行GC时，并非对整个堆一起回收，大部分是指对新生代
 -XX:PrintGCDetails      // 输出详细的GC日志
 -XX:HandlePromotionFailure // 是否设置空间分配担保
 -XX:+DoEscapeAnalysis   //启用逃逸分析，默认开启
--XX:+EliminateAllocations  // 启用标量替换，默认开启    
+-XX:+EliminateAllocations  // 启用标量替换，默认开启
+    
+-XX:+HeapDumpOnOutOfMemoryError   // 内存溢出时Dump出当前的内存堆转储快照
 ```
 
 **HandlePromotionFailure**
 
-​	jdk7以及之后：**在Minor GC之前，只要老年代的连续内存空间 > 新生代对象总大小|历次晋升的平均大小：Minor GC，否则Full GC**
+> 当在新生代无法分配内存的时候，把新生代的对象转移到老生代，然后把新对象放入腾空的新生代。
+
+​	jdk7以及之后：**只要老年代的连续内存空间 > 新生代对象总大小|历次晋升的平均大小：Minor GC，否则Full GC** (具体垃圾收集器具体分析)
 
 # 六、常用调优工具
 
 - JDK命令行
 - Eclipse：Memory Analyzer Tool
-- Jconsole
+  - Jconsole
 - VisualVM
 - Jprofiler
 - Java Flight Recorder
