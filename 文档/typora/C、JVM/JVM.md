@@ -793,6 +793,8 @@ s1 == s2
 
 ## 6.4 intern()
 
+
+
 # 六、垃圾回收
 
 <strong style="color:red">垃圾回收期间会触发STW（Stop The World），挂起用户线程</strong>
