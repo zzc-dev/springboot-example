@@ -1841,6 +1841,153 @@ G1垃圾收集器还增加了一种新的内存区域，叫做Humongous内存区
 - GCViewer
 - GC Easy
 
+# 十、JVM参数总结
+
+## 10.1 JVM参数选项类型
+
+### 10.1.1 标准参数选项
+
+​	比较稳定，后续版本基本不会变化
+
+​    以 `-` 开头
+
+​    java -help 可以看到所有的标准参数选项
+
+### 10.1.2 -X参数
+
+功能还是比较稳定，但后续版本可能会变更
+
+以 `-X` 开头
+
+java -X 可以看到所有的X选项
+
+### 10.1.3 -XX参数
+
+不稳定
+
+## 10.2  添加JVM参数选项
+
+tomcat war包，l
+
+​	inux系统： tomcat/bin/catalina.sh JAVA_OPTS=""
+
+​    windows:   catalina.bat set "JAVA_OPTS="
+
+## 10.3 常用的JVM参数选项
+
+### 10.3.1 打印设置的XX选项和值
+
+| -XX:+PrintCommandLineFlags | 可以让在程序运行前打印出用户手动设置或者JVM自动设置的XX选项 |
+| -------------------------- | ----------------------------------------------------------- |
+| -XX:+PrintFlagslnitial     | 表示打印出所有XX选项的默认值                                |
+| -Xx:+PrintFlagsi           | 表示打印出XX选项在运行程序时生效的值                        |
+| _XX:+PrintVMOptions        | 打印JVM的参数                                               |
+
+### 10.3.2 堆、栈、方法区等内存大小设置
+
+```shell
+# 栈
+-Xss128k   设置每个线程的栈大小为128k 等价于-XX:ThreadStackSize=128k
+-Xms3550m  等价于-XX:InitialHeapSize，设置JVM初始堆内存为3550M
+-Xmx3550m  等价于_XX:MaxHeapSize，设置JVM最大堆内存为3550M
+
+# 堆内存
+-Xmn2g                设置年轻代大小为2G，官方推荐配置为整个堆大小的3/8
+-XX:NewSize=1024m     设置年轻代初始值为1024M
+-XX-MaxNewSize=1024m  设置年轻代最大值为1024M
+-XX:SurvivorRatio=8   设置年轻代中Eden区与一个Survivor区的比值，默认为8
+-XX:NewRatio=4        设置老年代与年轻代(包括1个Eden和2个Survivor区)的比值
+-XX:+UseAdaptiveSizePolicy         自动选择各区大小比例
+-XX:PretenureSizeThreadshold=1024  设置让大于此阈值的对象直接分配在老年代，单位为字节，只对Serial、ParNew收集器有效
+-XX:MaxTenuringThreshold=15 	   默认值为15，新生代每次MinorGC后，还存活的对象年龄+1，当对象的年龄大于设置的这个值时就进入老年代
+-XX:PrintTenuringDistribution      JVM在每次MinorGC后打印出当前使用的Survivor对象的年龄分布
+-XX:TargetSurvivorRatio			   MinorGC结束后Survivor区域占用空间的期望比例
+
+# 方法区
+## 永久代
+-XX:PermSize=256m 	 设置永久代初始值为256M
+-XX:MaxPermSize=256m 设置永久代最大值为256M
+## 元空间
+-XX:MetaspaceSize 				初始空间大小
+-XX:MaxMetaspaceSize 			最大空间，默认没有限制
+-XX:+UseCompessedOops 			压缩对象指针
+-XX:+UseCompressedClassPointers 压缩类指针
+-XX:CompressedClassSpaceSize 	设置Klass Metaspace的大小，默认1G
+
+# 直接内存
+-XX:MaxDirectMemorySize 指定DirectMemory容量，若未指定，则默认与Java堆最大值一样
+```
+
+### 10.3.3 OutOfMemory选项
+
+```shell
+-XX:+HeapDumponoutfMonoyfror  表示在内存出现OOM的时候，把Heap转存(Dump)到文件以便后续分析
+-XX:+HeapDumpBeforeFullGC	  表示在出现FullGC之前，生成Heap转储文件
+-XX:HeapDumpPath=<path>  	  指定heap转存文件的存储路径
+-XX:OnOutOfMemoryError 		  指定一个可行性程序或者脚本的路径，当发生OOM的时候，去执行这个脚本
+```
+
+### 10.3.4 垃圾收集器相关选项
+
+```shell
+# serial 串行 client模式下默认的垃圾回收器
+-XX:+UseSerialGC 新生代使用Serial GC，老年代使用Serial Old GC
+```
+
+### 10.3.5 GC日志相关选项
+
+```shell
+# 常用参数
+-verbose:gc 			输出gc日志信息，默认输出到标准输出
+-XX:+PrintGC 			等同于-verbose:gc，表示打开简化的GC日志
+-XX:+PrintGCDetails 	在发生垃圾回收时打印内存回收详细的日志，并在进程退出时输出当前内存各区域分配情况
+-XX:+PrintGCTimeStamps 	输出GC发生时的时间戳
+-XX:+PrintGCDateStamps 	输出GC发生时的时间戳(以日期的形式，如2013-05-04T21:53:59.234+0800)
+-XX:+PrintHeapAtGC 		每一次GC前和GC后，都打印堆信息
+-Xloggc:<file>			把GC日志写入到一个文件中去，而不是打印到标准输出中
+
+# 其他参数
+-XX:+TraceClassloading 					监控类的加载
+-XX:+PrintGCApplicationStoppedTime 		打印GC时线程的停顿时间
+-XX:+PrintGCApplicationConcurrentTime 	垃圾收集之前打印出应用未中断的执行时间
+-XX:+PrintReferenceGC 					记录回收了多少种不同引用类型的引用
+-XX:+PrintTenuringDistribution 			让JVM在每次MinorGC后打印出当前使用的Survivor中对象的年龄分布
+-XX:+UseGCLogFileRotation 				启用GC日志文件的自动转储
+-XX:NumberOfGClogFiles=1 				GC日志文件的循环数目
+-XX:GCLogFileSize=1M					控制GC日志文件的大小
+```
+
+### 10.3.6 其他
+
+```shell
+-XX:ReservedCodeCacheSize=[g|m|k]. -XX:lnitialCodeCacheSize=[g|m|k] 指定代码缓存的大小
+-XX:+DisableExplicitGC 		禁止hotspot执行System.gc()，默认禁用
+-XX:+UseCodeCacheFlushing 	使用该参数让jvm放弃一些被编译的代码，避免代码缓存被占满时JVM切换到interpreted-only的情况
+-XX:+DoEscapeAnalysis 		开启逃逸分析
+-XX:+UseBiasedLocking 		开启偏向锁
+-XX:+UseLargePages 			开启使用大页面
+-XX:+UseTLAB	 			使用TLAB，默认打开
+-XX:+PrintTLAB 				打印TLAB的使用情况
+-XX:TLABSize 				设置TLAB大小
+```
+
+## 10.4 通过Java代码获取JVM参数
+
+```java
+public class HeapSpacelnitial {
+	public static void main(String[] args){
+		//返回Java虚拟机中的堆内存总量
+		long initialMemory = Runtime.getRuntime().totalMemory()/ 1024/ 1024;
+		//返回Java虚拟机试图使用的最大堆内存量
+		long maxMemory = Runtime.getRuntime().maxMemory()/ 1024/ 1024;
+		System.out.println("-Xms :"+initialMemory +"M");
+		System.out.println("-Xmx:"+ maxMemory + "M");
+		System.out.print1n("系统内存大小为:"+maxMemory *4.e/1024+"G");
+		System.out.println("系统内存大小为:"+initialMemory *64.e/1024 + "G");
+	}
+}
+```
+
 # 疑问：具体运行时的变量，方法，常量到底存放在哪？
 
 ## 1.java静态变量存放位置？
