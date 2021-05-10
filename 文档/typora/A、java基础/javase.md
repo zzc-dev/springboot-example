@@ -58,7 +58,7 @@
         /*
 		使用的形参为何要为 final???
 		 在内部类中的属性和外部方法的参数两者从外表上看是同一个东西，但实际上却不是，所以他们两者是可以任意变化的，
-		 也就是说在内部类中我对属性的改变并不会影响到外部的形参，而然这从程序员的角度来看这是不可行的，
+		 也就是说在内部类中我对属性的改变并不会影响到外部的形参，然而这从程序员的角度来看这是不可行的，
 		 毕竟站在程序的角度来看这两个根本就是同一个，如果内部类该变了，而外部方法的形参却没有改变这是难以理解
 		 和不可接受的，所以为了保持参数的一致性，就规定使用 final 来避免形参的不改变
 		 */
@@ -114,3 +114,116 @@ jdk8前，
 > ​	-> 在初始化阶段clinit中对静态变量按代码出现顺序赋值（赋值语句和static静态代码块）
 >
 > ​	-> 构造方法执行（init）：普通成员变量的初始化：普通成员变量赋值语句->代码块->构造器
+
+# 四、泛型
+
+> 泛型：参数化类型。将类型由原来的具体类型参数化
+>
+>    限定了集合的元素类型；获取时避免强制转换。（集合添加后不会记住具体的类型，获取时都是Object）
+
+- 泛型只是在逻辑上是不同的，只作用在编译期，编译后的字节码文件是没有泛型的。**泛型擦除机制**
+- 泛型是没有父子关系的。`Box<Integer>`和`Box<Number>`没有父子关系。可使用通配符`?`
+- `?`不是类型形参，而是类型实参。它代表了所有<具体类型实参>的父类 
+- 类型通配符上限`<? extend Object>`；类型通配符下限`<? super Object>`
+- 没有泛型数组的概念
+
+## 4.1 泛型数组
+
+**数组类型检查机制**
+
+> **数组在创建时就确定了元素的类型，并且会记住该类型，每次向数组中添加值时，都会做类型检查，类型不匹配就会抛异常**`java.lang.ArrayStoreException`
+
+```java
+Integer[] intArr = new Integer[1];
+Object[] objArr = intArr;
+objArr[0] = "xxx"; // java.lang.ArrayStoreException
+```
+
+泛型数组：
+
+```java
+A<String>[] arr = new A<String>[1]; // 编译错误
+```
+
+如果编译成功存在的问题：
+
+​	泛型存在擦除，下面代码是没有问题的，`A<String>`、`A<Integer>`在运行时是一样的，这样跳过了**数组类型检查机制**，在使用中会造成**类型转换异常**
+
+```java
+A<String>[] arr = new A<String>[1];
+Object[] objArr = arr;
+objArr[0] = new A<Integer>();
+```
+
+**强转**
+
+```java
+A<String>[] arr = (A<String>[]) new A[1];
+Object[] objArr = arr;
+objArr[0] = new A<Integer>(1);
+A<String> a = arr[0];
+// java.lang.ClassCastException: java.lang.Integer cannot be cast to java.lang.String
+String s = a.getValue();
+```
+
+# 五、注解
+
+注解也叫元数据
+
+注解处理器：反射处理
+
+## 5.1 分类
+
+- **java自带的标准注解**
+  - @Override（标明重写某个方法）
+  - @Deprecated（标明某个类或方法过时）
+  - @SuppressWarnings（标明要忽略的警告）
+- **元注解：定义注解的注解**
+  - @Retention（标明注解被保留的阶段）
+  - @Target（标明注解使用的范围）
+  - @Inherited（标明注解可继承）
+  - @Documented（标明是否生成javadoc文档）
+- **自定义注解**
+
+## 5.2 用途
+
+和XML比较：
+
+​	注解：是一种分散式的元数据，与源代码紧绑定。
+
+​	xml：**是一种集中式的元数据，与源代码无绑定**
+
+1. **生成文档，通过代码里标识的元数据生成javadoc文档。**
+2. **编译检查，通过代码里标识的元数据让编译器在编译期间进行检查验证。**
+3. **编译时动态处理，编译时通过代码里标识的元数据动态处理，例如动态生成代码。**
+4. **运行时动态处理，运行时通过代码里标识的元数据动态处理，例如使用反射注入实例**
+
+## 5.3 @Inherited
+
+@Inherited 元注解是一个标记注解，@Inherited阐述了某个被标注的类型是被继承的。
+
+如果一个使用了@Inherited修饰的annotation类型被用于一个class，则这个annotation将被用于该class的子类
+
+```java
+
+@Target({ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+public @interface MyAnTargetType {
+    /**
+     * 定义注解的一个元素 并给定默认值
+     * @return
+     */
+    String value() default "我是定义在类接口枚举类上的注解元素value的默认值";
+}
+
+
+public class ChildAnnotationTest extends AnnotationTest {
+    public static void main(String[] args) {
+        // 获取类上的注解MyAnTargetType
+        MyAnTargetType t = ChildAnnotationTest.class.getAnnotation(MyAnTargetType.class);
+        System.out.println("类上的注解值 === "+t.value());
+    }
+}
+```
+
