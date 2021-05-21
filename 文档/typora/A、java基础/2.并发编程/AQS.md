@@ -369,6 +369,8 @@ private void doReleaseShared() {
 
 # 六、公平锁与非公平锁
 
+![img](D:\myself\springboot-example\文档\typora\images\juc29.png)
+
 公平锁：首先看是否有线程再等待，有则直接加入到等待队列，没有尝试获取锁
 
 非公平锁：1.调用lock后，第一次调用CAS进行一次抢锁，如果成功，获取锁返回
@@ -445,7 +447,7 @@ final boolean nonfairTryAcquire(int acquires) {
 
 ## 6.3 lockInterruptibly
 
-ock() 方法处理中断的方法就是，你中断归中断，我抢锁还是照样抢锁，几乎没关系，只是我抢到锁了以后，设置线程的中断状态而已，也不抛出任何异常出来。调用者获取锁后，可以去检查是否发生过中断，也可以不理会。
+lock() 方法处理中断的方法就是，你中断归中断，我抢锁还是照样抢锁，几乎没关系，只是我抢到锁了以后，设置线程的中断状态而已，也不抛出任何异常出来。调用者获取锁后，可以去检查是否发生过中断，也可以不理会。
 
 ```java
 static void selfInterrupt() {
