@@ -269,6 +269,10 @@ AnnotationAwareAspectJAutoProxyCreator -> InstantiationAwareBeanPostProcessor  -
     
 ```
 
+1. `invokeBeanFactoryPostProcessors` 执行BeanFactoryPostProcessor的postProcessor()时，将 `AspectJAutoProxyRegistrar` 该Bean注册加载到容器，由于它是ImportBeanDefinitionRegistrar的子类，此阶段会实例化并调用registrarBean向容器中注册 `AnnotationAwareAspectJAutoProxyCreator`
+2. `registerBeanPostProcessor` 加载并实例化所有的后置处理器，其中包括了`AnnotationAwareAspectJAutoProxyCreator`
+3. `finishBeanPostProcessor` 创建所有非懒加载的单例bean，在创建bean实例化并给属性赋值后，在初始化时，调用`AnnotationAwareAspectJAutoProxyCreator`的after()创建了代理对象
+
 
 
 # 三、bean作用域
