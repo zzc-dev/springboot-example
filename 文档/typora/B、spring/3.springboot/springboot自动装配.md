@@ -112,11 +112,196 @@ public static AutoConfigurationMetadata loadMetadata(ClassLoader classLoader) {
 
 ​	Spring Boot启动的时候会通过@EnableAutoConfiguration注解找到META-INF/spring.factories配置文件中的所有自动配置类，并对其进行加载，而这些自动配置类都是以AutoConfiguration结尾来命名的，它实际上就是一个JavaConfig形式的Spring容器配置类，它能通过以Properties结尾命名的类中取得在全局配置文件中配置的属性如：server.port，而XxxxProperties类是通过@ConfigurationProperties注解与全局配置文件中对应的属性进行绑定的。
 
+# 二、run流程
 
+## 2.1 源码
 
+### 2.1.1 创建SpringApplication
 
+```java
+public SpringApplication(ResourceLoader resourceLoader, Class<?>... primarySources) {
+		this.resourceLoader = resourceLoader;
+		Assert.notNull(primarySources, "PrimarySources must not be null");
+		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
+		this.webApplicationType = WebApplicationType.deduceFromClasspath();
+		// 从类路径META-INF/spring.factroies获取所有的ApplicationContextInitializer保存
+		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
+		// 从类路径META-INF/spring.factroies获取所有的ApplicationListener保存
+		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
+		this.mainApplicationClass = deduceMainApplicationClass();
+}
+```
 
+### 2.1.2 run
 
+```java
+public ConfigurableApplicationContext run(String... args) {
+		StopWatch stopWatch = new StopWatch();
+		stopWatch.start();
+		// IOC 容器
+		ConfigurableApplicationContext context = null;
+		Collection<SpringBootExceptionReporter> exceptionReporters = new ArrayList<>();
+		configureHeadlessProperty();
+		// 从类路径下META-INF/spring.factroies获取SpringApplicationRunListener
+		SpringApplicationRunListeners listeners = getRunListeners(args);
+		// 回调所有的SpringApplicationRunListener的starting()
+		listeners.starting();
+		try {
+			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+			//创建准备环境
+			ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
+			configureIgnoreBeanInfo(environment);
+			Banner printedBanner = printBanner(environment);
+			//创建webIOC还是普通IOC
+			context = createApplicationContext();
+			exceptionReporters = getSpringFactoriesInstances(SpringBootExceptionReporter.class,
+					new Class[] { ConfigurableApplicationContext.class }, context);
+			//创建IOC
+			prepareContext(context, environment, listeners, applicationArguments, printedBanner);
+			//加载IOC容器中的所有组件
+			refreshContext(context);
+			afterRefresh(context, applicationArguments);
+			stopWatch.stop();
+			if (this.logStartupInfo) {
+				new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), stopWatch);
+			}
+			// 回调所有的SpringApplicationRunListener的started()
+			listeners.started(context);
+			// 先调用IOC容器中ApplicationRunner.run
+			// 再调用IOC容器中CommandLineRunner.run
+			callRunners(context, applicationArguments);
+		}
+		catch (Throwable ex) {
+			handleRunFailure(context, ex, exceptionReporters, listeners);
+			throw new IllegalStateException(ex);
+		}
+
+		try {
+		    // 回调所有的SpringApplicationRunListener的running()
+			listeners.running(context);
+		}
+		catch (Throwable ex) {
+			handleRunFailure(context, ex, exceptionReporters, null);
+			throw new IllegalStateException(ex);
+		}
+		return context;
+}
+```
+
+#### 2.1.2.1 prepareEnvironment
+
+```java
+private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
+			ApplicationArguments applicationArguments) {
+		// 1.Create and configure the environment 创建环境
+		ConfigurableEnvironment environment = getOrCreateEnvironment();
+		configureEnvironment(environment, applicationArguments.getSourceArgs());
+		ConfigurationPropertySources.attach(environment);
+		// 2.回调所有的SpringApplicationRunListener的environmentPrepared()表示环境准备完成
+		listeners.environmentPrepared(environment);
+		bindToSpringApplication(environment);
+		if (!this.isCustomEnvironment) {
+			environment = new EnvironmentConverter(getClassLoader()).convertEnvironmentIfNecessary(environment,
+					deduceEnvironmentClass());
+		}
+		ConfigurationPropertySources.attach(environment);
+		return environment;
+}
+```
+
+#### 2.1.2.2 prepareContext
+
+```java
+private void prepareContext(ConfigurableApplicationContext context, ConfigurableEnvironment environment,
+			SpringApplicationRunListeners listeners, ApplicationArguments applicationArguments, Banner printedBanner) {
+		context.setEnvironment(environment);
+		postProcessApplicationContext(context);
+		// Assert.isInstanceOf(requiredType, context, "Unable to call initializer.");
+		// 调用（一）中保存的ApplicationContextInitializer的initialize(context),对context初始化
+		applyInitializers(context);
+		// 回调所有的SpringApplicationRunListener的contextPrepared()
+		listeners.contextPrepared(context);
+		if (this.logStartupInfo) {
+			logStartupInfo(context.getParent() == null);
+			logStartupProfileInfo(context);
+		}
+		// Add boot specific singleton beans
+		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+		beanFactory.registerSingleton("springApplicationArguments", applicationArguments);
+		if (printedBanner != null) {
+			beanFactory.registerSingleton("springBootBanner", printedBanner);
+		}
+		if (beanFactory instanceof DefaultListableBeanFactory) {
+			((DefaultListableBeanFactory) beanFactory)
+					.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
+		}
+		if (this.lazyInitialization) {
+			context.addBeanFactoryPostProcessor(new LazyInitializationBeanFactoryPostProcessor());
+		}
+		// Load the sources
+		Set<Object> sources = getAllSources();
+		Assert.notEmpty(sources, "Sources must not be empty");
+		load(context, sources.toArray(new Object[0]));
+		// 回调所有的SpringApplicationRunListener的contextLoaded()
+		listeners.contextLoaded(context);
+}
+```
+
+#### 2.1.2.3 callRunners
+
+```java
+private void callRunners(ApplicationContext context, ApplicationArguments args) {
+		List<Object> runners = new ArrayList<>();
+		runners.addAll(context.getBeansOfType(ApplicationRunner.class).values());
+		runners.addAll(context.getBeansOfType(CommandLineRunner.class).values());
+		AnnotationAwareOrderComparator.sort(runners);
+		for (Object runner : new LinkedHashSet<>(runners)) {
+			if (runner instanceof ApplicationRunner) {
+				callRunner((ApplicationRunner) runner, args);
+			}
+			if (runner instanceof CommandLineRunner) {
+				callRunner((CommandLineRunner) runner, args);
+			}
+		}
+}
+```
+
+## 2.2 总结
+
+有些类无需被IOC容器管理，因为当时IOC容器还未初始化，如：
+
+-  `ApplicationContextInitializer`
+- `ApplicationListener`
+- `SpringApplicationRunListener`
+
+1. 创建SpringApplication
+
+   从类路径META-INF/spring.factories获取所有的 `ApplicationContextInitializer` 和 `ApplicationListener` 保存
+
+2. run
+
+   从类路径下META-INF/spring.factroies获取**SpringApplicationRunListener**
+   											⬇
+   				SpringApplicationRunListener.starting()
+   											⬇
+   						创建ConfigurableEnvironment
+   		listeners.environmentPrepared(environment)表示环境准备完成
+   											⬇
+   				根据环境创建IOC容器（web IOC还是普通IOC）
+   											⬇
+   					 对IOC容器context做些初始化操作
+   			ApplicationContextInitializer.initialize(context)
+   					listeners.contextPrepared(context)
+   						listeners.contextLoaded(context);
+   											⬇
+   						加载IOC容器中的所有组件
+   											⬇
+   						listeners.started(context);
+   											⬇
+   				先调用IOC容器中ApplicationRunner.run
+   			 再调用IOC容器中CommandLineRunner.run
+   											⬇
+   						listeners.running(context)
 
 
 
