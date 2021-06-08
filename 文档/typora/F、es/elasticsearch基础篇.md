@@ -23,6 +23,8 @@ es-java-api：https://www.elastic.co/guide/en/elasticsearch/client/java-rest/cur
 
 ## 1. Elasticsearch概述
 
+**Elasticsearch 是一个分布式、可扩展、实时的搜索与数据分析引擎**
+
 ES是基于Lucene的搜索服务器，它提供了一个分布式多用户能力的全问搜索引擎，且ES支持RestFulweb风格的url访问。ES是基于Java开发的开源搜索引擎，设计用于云计算，能够达到实时搜索，稳定、可靠、快速。此外，ES还提供了**数据聚合分析**功能，但在数据分析方面，es的时效性不是很理想，在企业应用中一般还是用于搜索。ES自2016年起已经超过Solr等，称为排名第一的搜索引擎应用。
 
 ## 2. 类型废弃原因
