@@ -1044,6 +1044,10 @@ B树：
 
 ![image-20201029192551391](D:\myself\springboot-example\文档\typora\images\mysql17.png)
 
+# 十、锁机制
+
+https://zhuanlan.zhihu.com/p/150101667
+
 # 记忆
 
 ## 1.子查询和 join 对比
