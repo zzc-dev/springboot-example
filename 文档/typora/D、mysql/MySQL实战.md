@@ -730,6 +730,104 @@ show processlist
 
 ![img](D:\myself\springboot-example\文档\typora\images\mysql27.png)
 
+## 7.5 join
+
+t1表 id a b ， a有索引 100行
+
+t2表 id a b，  a有索引 1000行
+
+### 7.5.1 Index Nested-Loop Join
+
+```
+
+select * from t1 straight_join t2 on (t1.a=t2.a);
+```
+
+1. 对驱动表 t1 做了全表扫描，这个过程需要扫描 100 行；
+2. 而对于每一行 R，根据 a 字段去表 t2 查找，走的是树搜索过程。由于我们构造的数据都是一一对应的，因此每次的搜索过程都只扫描一行，也是总共扫描 100 行；
+3. 所以，整个执行流程，总扫描行数是 200。
+
+**小表来做驱动表**
+
+### 7.5.2 Simple Nested-Loop Join
+
+```
+select * from t1 straight_join t2 on (t1.a=t2.b);
+```
+
+此算法要扫描的行数为100*1000行，效率太低，Mysql没有采用
+
+### 7.5.3 Block Nested-Loop Join
+
+1. 把表 t1 的数据读入线程内存 `join_buffer` 中，由于我们这个语句中写的是 select *，因此是把整个表 t1 放入了内存；
+2. 扫描表 t2，把表 t2 中的每一行取出来，跟 join_buffer 中的数据做对比，满足 join 条件的，作为结果集的一部分返回。
+
+扫描行数也是100*1000行，但该操作是再内存中完成的，性能更好
+
+`join_buffer` 的大小是由参数 join_buffer_size 设定的，默认值是 256k。如果放不下表 t1 的所有数据话，策略很简单，就是分段放
+
+**缺点：**
+
+- 可能会多次扫描被驱动表，占用磁盘 IO 资源；
+- 判断 join 条件需要执行 M*N 次对比（M、N 分别是两张表的行数），如果是大表就会占用非常多的 CPU 资源；
+- 可能会导致 Buffer Pool 的热数据被淘汰，影响内存命中率。
+
+```mysql
+# 与我们想象的不一致，需要扫描 t1*t2行
+# 1. 吧t1所有的数据存在join_buffer中
+# 2. 扫描t2，一行行和join_buffer中的数据对比，如果满足t1.b=t2.b再判断其他条件
+select * from t1 join t2 on (t1.b=t2.b) where t2.b>=1 and t2.b<=2000;
+```
+
+
+
+### 7.5.4 Batched Key Access
+
+BKA 对 NLJ算法的优化，依赖于MRR
+
+对比于NLJ，BKA将id取出后放入`join_buffer` 中，排序后去主键索引顺序读数据
+
+```shell
+# 启动BKA算法
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
+```
+
+
+
+## 7.6 查询优化
+
+### 7.6.1 Multi-Range Read 优化
+
+​	回表：先在普通索引a上查到主键id，再根据一个个主键id的值到主键索引上查询整行的过程
+
+去主键索引上查询是批量还是单个？
+
+​	a索引和id的关系不是递增的，所以a增大，id是乱序的，只能一个个查询
+
+```mysql
+select * from t1 where a>=1 and a<=100; # a是普通索引
+```
+
+优化：
+
+​	**MRR：按照主键递增顺序查询，对磁盘的读比较接近顺序读，能够提供读性能**
+
+1. 根据索引 a，定位到满足条件的记录，将 id 值放入`read_rnd_buffer` 中 ;
+2. 将 read_rnd_buffer 中的 id 进行递增排序；
+3. 排序后的 id 数组，依次到主键 id 索引中查记录，并作为结果返回。
+
+```shell
+# read_rnd_buffer的大小
+read_rnd_buffer_size
+
+# 固定使用MRR优化
+set optimizer_switch="mrr_cost_based=off"
+```
+
+# 八、临时表
+
+
+
 # MVCC
 
 # 配置
