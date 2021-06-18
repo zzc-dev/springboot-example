@@ -214,7 +214,7 @@ innodb_change_buffer_max_size=50
 1. 从磁盘读入数据页到内存（老版本的数据页）
 
    	2. 从 change buffer 里找出这个数据页的 change buffer 记录 (可能有多个），依次应用，得到新版数据页；
-   	3. 写 redo log。这个 redo log 包含了数据页的变更和 change buffer 的变更
+      	3. 写 redo log。这个 redo log 包含了数据页的变更和 change buffer 的变更
 
 ​    **到这里 merge 过程就结束了。这时候，数据页和内存中 change buffer 对应的磁盘位置都还没有修改，属于脏页，之后各自刷回自己的物理数据，就是另外一个过程了**
 
@@ -295,18 +295,34 @@ show variables like 'transaction_isolation'
 
 ## 3.2 启动方式
 
-- 显示启动。begin、start transaction
-- set autocommit=0
-- commit work and chain 提交事务并自动开启下一个事务
+```shell
+- 显示启动。
+begin/start transaction # 事务在执行真正sql语句时才启动
+start transaction with consistent sanpshot # 执行该命令立即启动事务
+
+# 关闭自动提交
+set autocommit=0
+
+# 提交事务并自动开启下一个事务
+commit work and chain 
+```
+
+
 
 ```sql
 # 查找长事务
 select * from information_schema.innodb_trx where TIME_TO_SEC(timediff(now(),trx_started))>60
 ```
 
-## 3.3 “快照”在 MVCC 里是怎么工作的？
+## 3.3 MVCC
 
 <strong style="color:red">InnoDB 利用了“所有数据都有多个版本”的这个特性，实现了“秒级创建快照”的能力</strong>
+
+提高数据库并发性能，用更好的方式去处理读-写冲突，做到即使有读写冲突时，也能做到不加锁，非阻塞并发读
+
+同一行记录在系统中存在多个版本。
+
+MVCC：read-view + undolog
 
 ### 3.3.1 view分类
 
@@ -319,19 +335,13 @@ select * from information_schema.innodb_trx where TIME_TO_SEC(timediff(now(),trx
 
 ​	 数据表中的一行记录，其实可能有多个版本 (row)，每个版本有自己的 row trx_id。
 
-​										                                         **行状态变更图** 虚线为undo log回滚日志
+​	<strong style="color:red">视图数组+高水位</strong>
 
-<img src="D:\myself\springboot-example\文档\typora\images\mysql22.png" alt="img" style="zoom:50%;" />
+- 视图数组  innoDB为每个事务构造了一个数组，用来保存在这个事务启动瞬间，当前正在活跃的所有事务ID
+- 低水位  视图数组中事务id的最小值
+- 高水位  当前系统里已经创建过的事务id的最大值+1。									                         
 
-​	 V1、V2、V3 并不是物理上真实存在的，而是每次需要的时候根据当前版本和 undo log 计算出来的。比如，需要 V2 的时候，就是通过 V4 依次执行 U3、U2 算出来
-
-​	InnoDB 为每个事务构造了一个数组，用来保存这个事务启动瞬间，当前正在“活跃”的所有事务 ID。“活跃”指的就是，启动了但还没提交
-
-​	**低水位**： 数组里面事务 ID 的最小值
-
-​	**高水位**：当前系统里面已经创建过的事务 ID 的最大值加 1
-
-**这个视图数组和高水位，就组成了当前事务的一致性视图（read-view）**
+如：事务A创建前，有一个活跃的事务ID=99，视图数组为：[99,100]；低水位：99， 高水位：99+1=100	
 
 ### 3.3.3 数据版本可见性规则
 
@@ -345,68 +355,24 @@ select * from information_schema.innodb_trx where TIME_TO_SEC(timediff(now(),trx
   - a. 若 row trx_id 在数组中，表示这个版本是由还没提交的事务生成的，不可见；
   - b. 若 row trx_id 不在数组中，表示这个版本是已经提交了的事务生成的，可见。
 
- 具体：如果有一个事务，它的低水位是 18（落在黄色部分），那么当它访问这一行数据时，就会从 V4 通过 U3 计算出 V3，所以在它看来，这一行的值是 11
-
-### 3.3.4 当前读
-
-​	除了 update 语句外，select 语句如果加锁，也是当前读。
-
-### 3.3.5 举例
-
-```shell
-# 并不是一个事务的起点，在执行到它们之后的第一个操作 InnoDB 表的语句，事务才真正启动
-begin/start transaction
-# 马上启动一个事务
-start transaction with consistent snapshot
-```
-
-结果：事务A k=1 事务B：k=3
-
-<img src="D:\myself\springboot-example\文档\typora\images\mysql21.png" alt="img" style="zoom: 67%;" />
-
-事务 A 的视图数组就是[99,100], 事务 B 的视图数组是[99,100,101], 事务 C 的视图数组是[99,100,101,102]
-
-<img src="D:\myself\springboot-example\文档\typora\images\mysql24.png" alt="img" style="zoom:50%;" />
-
-
-
-> 高水位：
->
-> ​	在实现上， InnoDB 为每个事务构造了一个数组，用来保存这个事务启动瞬间，当前正在“活跃”的所有事务 ID。“活跃”指的就是，启动了但还没提交。数组里面事务 ID 的最小值记为低水位，当前系统里面已经创建过的事务 ID 的最大值加 1 记为高水位。 所以当事务A创建时，高水位=99+1=100
-
-#### 3.3.5.1 事务A读取数据
-
-- 找到 (1,3) 的时候，判断出 row trx_id=101，比高水位大，处于红色区域，不可见；
-- 接着，找到上一个历史版本，一看 row trx_id=102，比高水位大，处于红色区域，不可见；
-- 再往前找，终于找到了（1,1)，它的 row trx_id=90，比低水位小，处于绿色区域，可见
-
 总结：
 
 - 版本未提交，不可见；
 - 版本已提交，但是是在视图创建后提交的，不可见；
 - 版本已提交，而且是在视图创建前提交的，可见
 
-**事务A读取数据：**
+### 3.3.4 当前读
 
-- (1,3) 还没提交，属于情况 1，不可见；
-- (1,2) 虽然提交了，但是是在视图数组创建之后提交的，属于情况 2，不可见；
-- (1,1) 是在视图数组创建之前提交的，可见。
-
-#### 3.3.5.2 更新数据
-
-​	事务 B 的 update 语句，如果按照一致性读，好像结果不对哦？
-
-​	事务 B 的视图数组是先生成的，之后事务 C 才提交，不是应该看不见 (1,2) 吗，怎么能算出 (1,3) 来？
+​	除了 update 语句外，select 语句如果加锁，也是当前读。
 
 <strong style="color:red">更新数据都是先读后写的，而这个读，只能读当前的值，称为“当前读”（current read）</strong>
 
-​	在更新的时候，当前读拿到的数据是 (1,2)，更新后生成了新版本的数据 (1,3)，这个新版本的 row trx_id 是 101
+## 3.4 可重复读和读提交
 
-## 3.4 事务的可重复读的能力是怎么实现的
-
-​	可重复读的核心就是一致性读（consistent read）；
-
-​	而事务更新数据的时候，只能用当前读。如果当前的记录的行锁被其他事务占用的话，就需要进入锁等待
+- 可重复读，只需要在事务开始的时候创建一致性视图，之后事务里的其他查询都共用这个一致性视图；
+  - 可重复读的核心就是**一致性读（consistent read）**：一行数据被修改过，但是事务不论在什么时候查询，看到这行数据的结果都是一致的；
+  - 而事务更新数据的时候，只能用当前读。如果当前的记录的行锁被其他事务占用的话，就需要进入锁等待
+- 在读提交隔离级别下，每一个语句执行前都会重新算出一个新的视图
 
 ## 3.5 幻读
 
@@ -925,12 +891,6 @@ set optimizer_switch="mrr_cost_based=off"
 5. 把业务请求切到备库 B。
 
 **在步骤 2 之后，主库 A 和备库 B 都处于 readonly 状态，也就是说这时系统处于不可写状态，直到步骤 5 完成后才能恢复。**
-
-# 十、MVCC
-
-Multi-Version Concurrency Control
-
-提高数据库并发性能，用更好的方式去处理读-写冲突，做到即使有读写冲突时，也能做到不加锁，非阻塞并发读
 
 # 配置
 
