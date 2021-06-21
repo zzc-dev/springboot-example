@@ -67,9 +67,8 @@ topic是逻辑概念，而partition是物理概念，每个partition对应一个
 ![image-20210202110638824](D:\myself\springboot-example\文档\typora\images\kafka06.png)
 
 1. 指定partition
-
-     		2. 没有指明partition但有key的情况，将key的hash值与分区数取模后得到partition值
-       		3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
+2. 没有指明partition但有key的情况，将key的hash值与分区数取模后得到partition值
+3. partition和key都没有指定，第一次调用时随机生成一个值然后取模得到partition，之后将这个值自增。这就是`round-robin`(轮询)算法
 
 ## 2.2 数据可靠性
 

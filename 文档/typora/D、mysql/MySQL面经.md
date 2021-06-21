@@ -73,8 +73,8 @@ select distinct from join on where group by having union order by limit
 执行顺序
 from
 where
-join
 on
+join
 group by
 having
 select

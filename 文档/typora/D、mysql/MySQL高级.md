@@ -323,7 +323,7 @@ https://www.cnblogs.com/kenD/p/12751177.html
 
 1. 指向跟节点。用于随机查找
 
-  		2. 指向id最小的叶子节点，**所有叶子节点之间是链式环形结构**，用于主键的范围查找和分页查找
+    		2. 指向id最小的叶子节点，**所有叶子节点之间是链式环形结构**，用于主键的范围查找和分页查找
 
 ## 5. 聚簇索引和非聚簇索引
 
@@ -415,7 +415,7 @@ https://www.cnblogs.com/kenD/p/12751177.html
 2.const 唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配。常见于主键或唯一索引扫描
   select * from plate where id=1
 
-3.eq_ref 与const的区别，eq_const用于联表查找
+3.eq_ref ,类似 ref，区别就在使用的索引时唯一索引，对于每个索引的键值，表中只要一条记录匹配；简单的说，就是多表连接中使用 primary key 或者 unique index      作为关联条件。
   explain select * from plate a,plate b where a.id = b.id;  # b表的type为eq_ref
 
 4.ref 非唯一性索引扫描，返回匹配某个单独值的所有行
