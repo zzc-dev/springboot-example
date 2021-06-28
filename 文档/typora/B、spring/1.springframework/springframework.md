@@ -232,9 +232,13 @@ protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, 
 ## 4. bean的生命周期
 
 1. 加载注册配置类的bean
+
 2. 创建BeanFactory并填充属性
+
 3. 执行BeanFactoryPostProcessor的后置处理方法，有一个子类`ConfigurationClassPostProcessor` 将扫描配置类并将其他Bean加载注册到容器中
+
 4. 向容器注册并初始化一些BeanPostProcessor
+
 5. 创建并初始化单例非懒加载的bean
    1. 实例化bean
    2. 给bean的属性赋值 `populateBean`
@@ -242,6 +246,10 @@ protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, 
    4. 执行BeanPostProcessor的before方法
    5. 执行init-method()
    6. 执行BeanPostProcessor的after()
+   
+6. 如果 bean 实现DisposableBean 接口，当 spring 容器关闭时，会调用 destory()。
+
+   如果为bean 指定了 destroy 方法（ <bean> 的 destroy-method 属性），那么将 调用它。
 
 # 二、AOP
 
