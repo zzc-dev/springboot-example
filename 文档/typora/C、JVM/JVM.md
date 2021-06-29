@@ -1840,11 +1840,11 @@ public class PhantomReferenceTest {
 
 在GC时， 终结器引用入队。由Finali zer线程通过终结器引用找到被引用对象并调用它的finalize（）方法，第二次GC时才能回收被引用对象。
 
-# 十、JVM参数总结
+# 十一、JVM参数总结
 
-## 10.1 JVM参数选项类型
+## 11.1 JVM参数选项类型
 
-### 10.1.1 标准参数选项
+### 11.1.1 标准参数选项
 
 ​	比较稳定，后续版本基本不会变化
 
@@ -1852,7 +1852,7 @@ public class PhantomReferenceTest {
 
 ​    java -help 可以看到所有的标准参数选项
 
-### 10.1.2 -X参数
+### 11.1.2 -X参数
 
 功能还是比较稳定，但后续版本可能会变更
 
@@ -1860,11 +1860,11 @@ public class PhantomReferenceTest {
 
 java -X 可以看到所有的X选项
 
-### 10.1.3 -XX参数
+### 11.1.3 -XX参数
 
 不稳定
 
-## 10.2  添加JVM参数选项
+## 11.2  添加JVM参数选项
 
 tomcat war包，l
 
@@ -1872,9 +1872,9 @@ tomcat war包，l
 
 ​    windows:   catalina.bat set "JAVA_OPTS="
 
-## 10.3 常用的JVM参数选项
+## 11.3 常用的JVM参数选项
 
-### 10.3.1 打印设置的XX选项和值
+### 11.3.1 打印设置的XX选项和值
 
 | -XX:+PrintCommandLineFlags | 可以让在程序运行前打印出用户手动设置或者JVM自动设置的XX选项 |
 | -------------------------- | ----------------------------------------------------------- |
@@ -1882,7 +1882,7 @@ tomcat war包，l
 | -Xx:+PrintFlagsi           | 表示打印出XX选项在运行程序时生效的值                        |
 | _XX:+PrintVMOptions        | 打印JVM的参数                                               |
 
-### 10.3.2 堆、栈、方法区等内存大小设置
+### 11.3.2 堆、栈、方法区等内存大小设置
 
 ```shell
 # 栈
@@ -1917,7 +1917,7 @@ tomcat war包，l
 -XX:MaxDirectMemorySize 指定DirectMemory容量，若未指定，则默认与Java堆最大值一样
 ```
 
-### 10.3.3 OutOfMemory选项
+### 11.3.3 OutOfMemory选项
 
 ```shell
 -XX:+HeapDumponoutfMonoyfror  表示在内存出现OOM的时候，把Heap转存(Dump)到文件以便后续分析
@@ -1926,14 +1926,14 @@ tomcat war包，l
 -XX:OnOutOfMemoryError 		  指定一个可行性程序或者脚本的路径，当发生OOM的时候，去执行这个脚本
 ```
 
-### 10.3.4 垃圾收集器相关选项
+### 11.3.4 垃圾收集器相关选项
 
 ```shell
 # serial 串行 client模式下默认的垃圾回收器
 -XX:+UseSerialGC 新生代使用Serial GC，老年代使用Serial Old GC
 ```
 
-### 10.3.5 GC日志相关选项
+### 11.3.5 GC日志相关选项
 
 ```shell
 # 常用参数
@@ -1956,7 +1956,7 @@ tomcat war包，l
 -XX:GCLogFileSize=1M					控制GC日志文件的大小
 ```
 
-### 10.3.6 其他
+### 11.3.6 其他
 
 ```shell
 -XX:ReservedCodeCacheSize=[g|m|k]. -XX:lnitialCodeCacheSize=[g|m|k] 指定代码缓存的大小
@@ -1970,7 +1970,7 @@ tomcat war包，l
 -XX:TLABSize 				设置TLAB大小
 ```
 
-## 10.4 通过Java代码获取JVM参数
+## 11.4 通过Java代码获取JVM参数
 
 ```java
 public class HeapSpacelnitial {
