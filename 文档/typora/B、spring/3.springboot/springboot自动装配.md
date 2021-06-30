@@ -114,6 +114,8 @@ public static AutoConfigurationMetadata loadMetadata(ClassLoader classLoader) {
 
 # 二、run流程
 
+https://www.cnblogs.com/theRhyme/p/how-does-springboot-start.html
+
 ## 2.1 源码
 
 ### 2.1.1 创建SpringApplication
@@ -268,40 +270,18 @@ private void callRunners(ApplicationContext context, ApplicationArguments args) 
 
 ## 2.2 总结
 
-有些类无需被IOC容器管理，因为当时IOC容器还未初始化，如：
-
--  `ApplicationContextInitializer`
-- `ApplicationListener`
-- `SpringApplicationRunListener`
-
-1. 创建SpringApplication
-
-   从类路径META-INF/spring.factories获取所有的 `ApplicationContextInitializer` 和 `ApplicationListener` 保存
-
-2. run
-
-   从类路径下META-INF/spring.factroies获取**SpringApplicationRunListener**
-   											⬇
-   				SpringApplicationRunListener.starting()
-   											⬇
-   						创建ConfigurableEnvironment
-   		listeners.environmentPrepared(environment)表示环境准备完成
-   											⬇
-   				根据环境创建IOC容器（web IOC还是普通IOC）
-   											⬇
-   					 对IOC容器context做些初始化操作
-   			ApplicationContextInitializer.initialize(context)
-   					listeners.contextPrepared(context)
-   						listeners.contextLoaded(context);
-   											⬇
-   						加载IOC容器中的所有组件
-   											⬇
-   						listeners.started(context);
-   											⬇
-   				先调用IOC容器中ApplicationRunner.run
-   			 再调用IOC容器中CommandLineRunner.run
-   											⬇
-   						listeners.running(context)
+1. 实例化SpringApplication对象并初始化一些属性，如从类路径META-INF/spring.factroies获取所有的ApplicationListener保存
+2. 创建一个StopWatch实例，用来记录SpringBoot的启动时间
+3. 加载 `SpringApplicationRunListener` ，唯一实现`EventPublishingRunListener`
+4. 发布SpringBoot开始启动事件`EventPublishingRunListener.starting()`
+5. 创建和配置 `environment`，发布环境准备好的事件 `EventPublishingRunListener.environmentPrepared()`
+6. 根据环境创建对应的ApplicationContext：Web类型，Reactive类型，普通的类型(非Web)
+7. 初始化ApplicationContext：Web容器，发布容器准备和容器加载事件 `EventPublishingRunListener.contextPrepared()`、`EventPublishingRunListener.contextLoaded()`
+8. 创建IOC容器完成bean的加载注册以及初始化，
+9. stopWatch停止计时，日志打印总共启动的时间
+10. 发布SpringBoot启动完成事件`EventPublishingRunListener.started()`
+11. 调用ApplicationRunner和CommandLineRunner
+12. 最后发布就绪事件`EventPublishingRunListener.runing()`，标志着SpringBoot可以处理就收的请求了
 
 
 
