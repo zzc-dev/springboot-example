@@ -325,6 +325,18 @@ PUT _cluster/settings
 }
 ```
 
+## 3.3 限制深分页
+
+```json
+{
+	"settings":{
+		"index":{
+			"max_result_window": 10000 // form+size<=10000
+		}
+	}
+}
+```
+
 # 四、mapping
 
 ## 4.1 创建
